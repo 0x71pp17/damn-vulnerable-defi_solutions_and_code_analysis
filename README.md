@@ -75,7 +75,8 @@ The walkthroughs include for each challenge:
 - **Fix recommendation** - How to properly secure the vulnerable code
 
 > Click link in challenge name to go direct to each challenge walkthrough
-> Unlinked Challenge names pending walkthrough, comming soon to add walkthrough and linke... stay tuned
+>
+> `Unlinked` challenge names indicate pending walkthrough; comming soon to add walkthrough content and remaining links... stay tuned
 
 ## Classic Challenges (Updated for v4)
 1. [**Unstoppable**](https://github.com/0x71pp17/damn-vulnerable-defi/blob/master/walkthroughs/Unstoppable.md) - Flash loan denial of service
