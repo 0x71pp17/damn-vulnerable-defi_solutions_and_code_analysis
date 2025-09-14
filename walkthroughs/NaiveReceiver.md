@@ -47,12 +47,15 @@ function test_naiveReceiver() public checkSolvedByPlayer {
 ```
 
 ### Why it works
-1. Flash loans can be called on behalf of any receiver
-2. Receiver pays 1 ETH fee per loan without validation
-3. Multicall allows executing multiple operations in single transaction
-4. After draining receiver, we can withdraw pool funds to recovery address
+- Flash loans can be triggered by anyone on behalf of any receiver — the `flashLoan` function does not restrict who can initiate a loan.
+- The receiver pays a 1 ETH (WETH) fee for each loan, but it lacks access control or validation to prevent unauthorized or repeated calls.
+- `multicall` enables bundling multiple flash loan calls and a final `withdraw` into a single transaction, ensuring atomicity and efficiency.
+- By routing the `multicall` through the trusted `BasicForwarder`, we spoof the sender context so `_msgSender()` returns the pool owner, allowing the `withdraw` to succeed and transfer all pool funds to the recovery address.   
 
-### Fix
+
+
+
+### Vulnerability Analysis
 **File:** `src/naive-receiver/NaiveReceiverPool.sol`
 **Vulnerable Code (lines ~76-85):**
 ```solidity
@@ -62,71 +65,37 @@ function flashLoan(
     uint256 amount,
     bytes calldata data
 ) external returns (bool) {
-    // No validation that msg.sender == address(receiver)!
-    
+    // ✅ Validates token — only WETH supported
     if (token != address(weth)) revert UnsupportedCurrency();
+
+    // 🔒 Loan only proceeds if amount >= fee (i.e., at least 1 WETH)
+    // This prevents *some* abuse, but not all — see below
     if (amount >= FLASH_LOAN_FEE) {
+        // 💸 Transfers the requested amount to the receiver
+        // Even if amount == 1 WETH (minimum), the receiver will pay 2 WETH total (principal + fee)
         weth.transfer(address(receiver), amount);
-        
+
+        // 📈 Pool collects the fixed fee regardless of loan size
         totalFees += FLASH_LOAN_FEE;
-        
+
+        // 🔁 Receiver must implement onFlashLoan and return success
+        // But it has **no way to validate** who initiated the loan
         if (receiver.onFlashLoan(msg.sender, token, amount, FLASH_LOAN_FEE, data) != CALLBACK_SUCCESS) {
             revert CallbackFailed();
         }
-        
-        // Fee is deducted from receiver regardless of who initiated!
+
+        // 💣 Forces receiver to repay: principal + 1 WETH fee
+        // This is the core exploit: even a 1 WETH loan costs the receiver 2 WETH
+        // And since **anyone** can trigger it, an attacker can drain the receiver over multiple calls
         weth.transferFrom(address(receiver), address(this), amount + FLASH_LOAN_FEE);
     }
+    // 🟡 If amount < FLASH_LOAN_FEE (i.e., < 1 WETH), the loan is silently skipped
+    // But attacker can still use amount == 1 WETH to trigger the fee
+
     return true;
+}   true;
 }
 ```
 
-**The Problem:** Anyone can call `flashLoan()` on behalf of any receiver contract. The receiver pays the fee but has no control over when loans are taken.
 
-**Additional Vulnerability in `withdraw()` (lines ~103-108):**
-```solidity
-function withdraw(uint256 amount, address payable receiver) external {
-    // No access control - anyone can withdraw to any address!
-    deposits[msg.sender] = deposits[msg.sender] - amount;
-    weth.transfer(receiver, amount);
-}
-```
 
-**Fixed Code:**
-```solidity
-function flashLoan(
-    IERC3156FlashBorrower receiver,
-    address token,
-    uint256 amount,
-    bytes calldata data
-) external returns (bool) {
-    // ADD: Require caller is the receiver or approved operator
-    require(
-        msg.sender == address(receiver) || 
-        isApprovedOperator[address(receiver)][msg.sender],
-        "Unauthorized flash loan"
-    );
-    
-    if (token != address(weth)) revert UnsupportedCurrency();
-    // ... rest of function
-}
-
-// Add operator approval system
-mapping(address => mapping(address => bool)) public isApprovedOperator;
-
-function setOperatorApproval(address operator, bool approved) external {
-    isApprovedOperator[msg.sender][operator] = approved;
-}
-
-function withdraw(uint256 amount, address payable receiver) external {
-    // ADD: Require receiver is msg.sender or approved
-    require(
-        receiver == msg.sender || 
-        isApprovedOperator[msg.sender][address(receiver)],
-        "Unauthorized withdrawal destination"
-    );
-    
-    deposits[msg.sender] = deposits[msg.sender] - amount;
-    weth.transfer(receiver, amount);
-}
-```
