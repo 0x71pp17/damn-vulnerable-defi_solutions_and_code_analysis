@@ -72,7 +72,8 @@ The walkthroughs include for each challenge:
 - **Vulnerability explanation** - What the security flaw is
 - **Complete exploit code** - Exact Solidity code to add to test files
 - **Why it works** - Technical explanation of the attack vector
-- **Fix recommendation** - How to properly secure the vulnerable code
+
+
 
 > Click link in challenge name to go direct to each challenge walkthrough
 >
