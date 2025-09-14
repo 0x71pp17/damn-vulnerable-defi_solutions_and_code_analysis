@@ -15,9 +15,9 @@ Use Damn Vulnerable DeFi to:
 
 This repo is forked from [Damn Vulnerable Defi v4](https://github.com/theredguild/damn-vulnerable-defi).
 
-Here, solutions will be integrated into the associated `.sol` file in `test` folder associated with each vulnerable code challenge.
+Here, solutions will be integrated into the associated `.sol` file in [`test`](https://github.com/0x71pp17/damn-vulnerable-defi/tree/master/test) folder associated with each vulnerable code challenge.
 
-Walkthroughs will be included also within this repo, in an added `walkthroughs` folder. Links will follow below.
+Walkthroughs will be included also within this repo, in an added [`walkthroughs`](https://github.com/0x71pp17/damn-vulnerable-defi/tree/master/walkthroughs) folder. Links will follow below.
 
 ## v4 Challenges
 
