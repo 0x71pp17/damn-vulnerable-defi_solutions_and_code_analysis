@@ -4,7 +4,7 @@
 
 ### ✅ What is ERC-3156?
 
-**ERC-3156** is an **Ethereum standard** for **universal flash loan interfaces**, proposed by [@frozeman](https://eips.ethereum.org/EIPS/eip-3156).
+**ERC-3156** is an **Ethereum standard** for **universal flash loan interfaces**
 
 🔗 Official EIP: [https://eips.ethereum.org/EIPS/eip-3156](https://eips.ethereum.org/EIPS/eip-3156)  
 🎯 Goal: Create a **standardized way** for any contract to offer and receive flash loans — regardless of the token or protocol.
