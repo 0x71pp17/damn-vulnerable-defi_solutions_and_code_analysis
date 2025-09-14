@@ -102,10 +102,12 @@ function onFlashLoan(
     uint256 fee,
     bytes calldata data
 ) external returns (bytes32) {
-    // ✅ Only accept loans initiated by me
+    // 🛑 SECURITY CHECK: Only allow self-initiated loans
     if (initiator != address(this)) {
-        revert Unauthorized();
+        revert Unauthorized(); // ⛔ Execution stops here if not self-initiated
     }
+    // 🟢 If we reach here, initiator == address(this); 
+    // So: this contract (the receiver) deliberately triggered the loan
 
     // ✅ Validate token
     if (token != address(weth)) {
@@ -122,3 +124,121 @@ function onFlashLoan(
 ```
 
 This prevents unauthorized loans — even if the pool allows third-party calls
+
+The code:
+
+```solidity
+// ✅ Repay
+IERC20(token).approve(msg.sender, amount + fee);
+
+return keccak256("ERC3156FlashBorrower.onFlashLoan");
+```
+
+**will only execute if `initiator == address(this)`**, **provided** that the validation check:
+
+```solidity
+if (initiator != address(this)) {
+    revert UnauthorizedInitiator();
+}
+```
+
+comes **before** it — which it should.
+
+---
+
+### 🔍 What Happens When:
+
+| Scenario | Outcome |
+|--------|--------|
+| `initiator == address(this)` | Check passes → execution continues → `approve` and `return` are executed |
+| `initiator != address(this)` | `revert` is triggered → **entire transaction reverts** → `approve` and `return` are **never reached** |
+
+👉 So yes: **the repayment logic only runs if the receiver itself initiated the loan.**
+
+---
+
+### ✅ Why This Matters
+
+This ensures:
+- The receiver **only pays fees when it wants to**.
+- An attacker **cannot force** the contract to approve or repay anything.
+- The contract’s funds are **protected** from unauthorized flash loan abuse.
+
+This is the **core defense** against the *Naive Receiver* exploit.
+
+
+---
+
+### 🔍 Deeper Analysis: The `initiator` vs `address(this)` Comparison Check
+
+In the context of **ERC-3156 flash loans**, understanding the distinction between `initiator` and `msg.sender`, and correctly using `initiator` in validation, is **critical for security**.
+
+#### ✅ What Is `initiator`?
+- The `initiator` parameter in `onFlashLoan` is the **original caller** of the `flashLoan` function on the pool.
+- It is passed by the pool as `msg.sender` from the initial call.
+- It represents **who triggered the loan** — not necessarily the receiver.
+
+#### ✅ What Is `address(this)`?
+- This is the **address of the receiver contract itself**.
+- When the receiver says “I initiated this loan,” it means `initiator == address(this)`.
+
+#### ✅ Why Compare `initiator == address(this)`?
+
+To ensure that:
+> 🔐 **Only the receiver itself can trigger a flash loan on its own behalf.**
+
+Without this check:
+- An attacker can call:
+  ```solidity
+  pool.flashLoan(receiver, token, 0, "");
+  ```
+- The pool will:
+  - Send 0 tokens to `receiver`
+  - Call `receiver.onFlashLoan(attacker, token, 0, fee, "")`
+- The receiver, if it lacks validation, will:
+  - Proceed with the callback
+  - Repay the fee (e.g., 1 WETH)
+  - Lose funds for **no benefit**
+
+With the check:
+```solidity
+if (initiator != address(this)) revert Unauthorized();
+```
+- The same attack call fails
+- The transaction reverts before any state change
+- The receiver keeps its funds
+
+#### 🛡️ Security Implication
+
+This single line:
+```solidity
+require(initiator == address(this), "Unauthorized");
+```
+or
+```solidity
+if (initiator != address(this)) revert UnauthorizedInitiator();
+```
+acts as a **gatekeeper** — it transforms a **naive, vulnerable receiver** into a **secure one**.
+
+It enforces **intent**: “I only process flash loans that **I** deliberately start.”
+
+#### 🚫 Common Misconception
+
+Many assume that because `msg.sender == pool`, the call is safe. But:
+- `msg.sender` being the pool only means the **callback is legitimate**
+- It says **nothing** about who **triggered** it
+- The **real authorization decision** must be based on `initiator`
+
+---
+
+### ✅ Summary
+
+| Concept | Role in Security |
+|-------|------------------|
+| `initiator` | Who started the flash loan — must be validated |
+| `address(this)` | The receiver itself — the only safe `initiator` in most cases |
+| `initiator == address(this)` | The **golden rule** for secure receivers: “Only I can initiate my loans” |
+
+> 💡 **Bottom line**: The `initiator == address(this)` check is not optional — it is **essential** for any receiver that should not be forced into paying fees or executing logic by third parties.
+
+This is not just a best practice — it is **the defense** against the *Naive Receiver* exploit.
