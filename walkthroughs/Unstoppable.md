@@ -19,6 +19,8 @@ function test_unstoppable() public checkSolvedByPlayer {
 - This breaks the invariant and prevents future flash loans
 
 ### Fix
+> Remove the flawed check entirely or implement proper asset tracking
+
 **File:** `src/unstoppable/UnstoppableVault.sol`
 **Vulnerable Code (lines ~87-89):**
 ```solidity
