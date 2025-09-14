@@ -65,7 +65,32 @@ The walkthroughs include for each challenge:
 - **Why it works** - Technical explanation of the attack vector
 - **Fix recommendation** - How to properly secure the vulnerable code
 
-Coming soon, walkthrogh will be added below ...
+> Click link in challenge name to go direct to each challenge walkthrough
+
+## Classic Challenges (Updated for v4)
+1. [**Unstoppable**](https://github.com/0x71pp17/damn-vulnerable-defi/blob/master/walkthroughs/Unstoppable.md) - Flash loan denial of service
+2. **Naive Receiver** - Unauthorized flash loan exploitation
+3. **Truster** - Arbitrary external call abuse
+4. **Side Entrance** - Flash loan reentrancy via deposit
+5. **The Rewarder** - Reward distribution manipulation (completely reworked in v4)
+6. **Selfie** - Governance attack via flash loan voting
+7. **Compromised** - Oracle manipulation with leaked private keys
+8. **Puppet** - Uniswap v1 price manipulation
+9. **Puppet v2** - Uniswap v2 price manipulation
+10. **Free Rider** - NFT marketplace payment flaw exploitation
+
+## New V4 Challenges
+11. **Curvy Puppet** - Curve AMM price manipulation attack
+
+> **Coming soon**, new challenge walkthroughs will be linked below once ready...
+
+13. **Shards** - Fractional NFT system exploitation
+14. **Withdrawal** - Bridge withdrawal mechanism attack
+15. **The Rewarder (New)** - Advanced token distribution vulnerabilities
+
+
+
+
 
 
 ## Disclaimer
