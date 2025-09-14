@@ -42,7 +42,7 @@ The challenges in Damn Vulnerable DeFi v4 include:
 - **Curvy Puppet**: Manipulate Curve AMM pricing to exploit a lending protocol
 - **Withdrawal**: Exploit a bridge mechanism between L1 and L2 by manipulating withdrawal proofs or balances
 
-Four brand new challenges introduced in v4 are Curvy Puppet, Shards, Withdrawal, and The Rewarder (which was completely reworked) These challenges incorporate advanced features such as multicalls, meta-transactions, permit2, Merkle proofs, and ERC1155
+Four brand new challenges introduced in v4 are `Curvy Puppet, Shards, Withdrawal, and The Rewarder` (which was completely reworked) These challenges incorporate advanced features such as multicalls, meta-transactions, permit2, Merkle proofs, and ERC1155
 
 
 ## Walkthroughs
