@@ -19,7 +19,7 @@ function test_unstoppable() public checkSolvedByPlayer {
 - This breaks the invariant and prevents future flash loans
 
 ### Fix
-> Remove the faulty check entirely or implement better accounting
+> Remove the faulty check 
 
 **File:** `src/unstoppable/UnstoppableVault.sol`
 **Vulnerable Code (lines ~87-89):**
@@ -64,26 +64,3 @@ function flashLoan(IERC3156FlashBorrower receiver, address _token, uint256 amoun
 }
 ```
 
-**Alternative Fix - Better Accounting:**
-```solidity
-contract FixedUnstoppableVault {
-    uint256 private _totalManagedAssets; // Track only deposited assets
-    
-    function deposit(uint256 assets, address receiver) public override returns (uint256 shares) {
-        _totalManagedAssets += assets; // Track managed deposits
-        return super.deposit(assets, receiver);
-    }
-    
-    function flashLoan(IERC3156FlashBorrower receiver, address _token, uint256 amount, bytes calldata data)
-        external returns (bool)
-    {
-        if (amount == 0) revert InvalidAmount(0);
-        if (address(asset) != _token) revert UnsupportedCurrency();
-        
-        // Use managed assets instead of total balance
-        if (amount > _totalManagedAssets) revert InsufficientBalance();
-        
-        // ... rest of function
-    }
-}
-```
