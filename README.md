@@ -21,7 +21,7 @@ Walkthroughs will be included also within this repo, in an added `walkthroughs` 
 
 ## v4 Challenges
 
-Damn Vulnerable DeFi v4 includes a series of challenges designed to teach security vulnerabilities in decentralized finance (DeFi) applications. The new version has migrated to `Foundry`, updated dependencies, and modernized existing challenges, with some previous solutions potentially no longer working All challenges now require depositing funds into designated recovery accounts
+Damn Vulnerable DeFi v4 includes a series of challenges designed to teach security vulnerabilities in decentralized finance (DeFi) applications. The new version has migrated to [Foundry](https://getfoundry.sh), updated dependencies, and modernized existing challenges, with some previous solutions potentially no longer working All challenges now require depositing funds into designated recovery accounts
 
 The challenges in Damn Vulnerable DeFi v4 include:
 
