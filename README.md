@@ -44,10 +44,28 @@ The challenges in Damn Vulnerable DeFi v4 include:
 
 Four brand new challenges introduced in v4 are `Curvy Puppet, Shards, Withdrawal, and The Rewarder` (which was completely reworked) These challenges incorporate advanced features such as multicalls, meta-transactions, permit2, Merkle proofs, and ERC1155
 
+The challenges cover critical DeFi vulnerabilities like:
+
+Flash loan manipulation
+Price oracle attacks
+Governance token voting attacks
+Reentrancy exploits
+Access control failures
+NFT marketplace bugs 
+
 
 ## Walkthroughs
 
-Comming Soon... 
+Damn Vulnerable DeFi v4 walkthroughs here cover the classic challenges (1-10) and the new v4 challenges. 
+
+The walkthroughs include for each challenge:
+
+- **Vulnerability explanation** - What the security flaw is
+- **Complete exploit code** - Exact Solidity code to add to test files
+- **Why it works** - Technical explanation of the attack vector
+- **Fix recommendation** - How to properly secure the vulnerable code
+
+Coming soon, walkthrogh will be added below ...
 
 
 ## Disclaimer
