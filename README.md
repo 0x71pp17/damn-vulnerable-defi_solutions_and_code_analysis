@@ -19,6 +19,32 @@ Here, solutions will be integrated into the associated `.sol` file in `test` fol
 
 Walkthroughs will be included also within this repo, in an added `walkthroughs` folder. Links will follow below.
 
+## v4 Challenges
+
+Damn Vulnerable DeFi v4 includes a series of challenges designed to teach security vulnerabilities in decentralized finance (DeFi) applications. The new version has migrated to `Foundry`, updated dependencies, and modernized existing challenges, with some previous solutions potentially no longer working All challenges now require depositing funds into designated recovery accounts
+
+The challenges in Damn Vulnerable DeFi v4 include:
+
+- **Unstoppable**: Exploit a flash loan invariant by disrupting the balance check through a direct token transfer to the vault
+- **Naive Receiver**: Drain funds from a receiver by exploiting unguarded flash loan callbacks and using meta-transactions to perform multiple operations in one transaction
+- **Truster**: Exploit arbitrary delegate calls in a flash loan to approve and transfer all tokens from the pool
+- **Side Entrance**: Abuse a non-standard balance check in a flash loan by depositing borrowed funds back into the pool to fake repayment
+- **The Rewarder**: Exploit a timing vulnerability in a reward distribution mechanism using a flash loan to manipulate reward calculations
+- **Selfie**: Gain governance control by manipulating token balances via a flash loan to pass a malicious proposal
+- **Compromised**: Recover private keys from leaked hash prefixes to steal funds
+- **Puppet, Puppet V2, Puppet V3**: Manipulate pricing or collateralization in lending protocols through oracle or liquidity manipulation
+- **Free Rider**: Use a Uniswap flash swap to buy NFTs, claim a bounty, and repay the loan in one transaction
+- **Backdoor**: Exploit a wallet factory's setup function to execute malicious code during wallet creation and drain tokens
+- **Climber**: Chain multiple actions through a proxy upgrade mechanism to drain funds
+- **Wallet Mining**: Exploit predictable wallet address generation to claim rewards
+- **ABI Smuggling**: Bypass security checks using dynamic bytecode loading
+- **Shards**: Exploit improper handling of ERC1155 tokens in a multi-token vault
+- **Curvy Puppet**: Manipulate Curve AMM pricing to exploit a lending protocol
+- **Withdrawal**: Exploit a bridge mechanism between L1 and L2 by manipulating withdrawal proofs or balances
+
+Four brand new challenges introduced in v4 are Curvy Puppet, Shards, Withdrawal, and The Rewarder (which was completely reworked) These challenges incorporate advanced features such as multicalls, meta-transactions, permit2, Merkle proofs, and ERC1155
+
+
 ## Walkthroughs
 
 Comming Soon... 
