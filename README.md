@@ -11,6 +11,14 @@ Use Damn Vulnerable DeFi to:
 - Benchmark smart contract security tooling.
 - Create educational content on smart contract security with articles, tutorials, talks, courses, workshops, trainings, CTFs, etc. 
 
+## Disclaimer
+
+All code, practices and patterns in this public repository fork, and original, are DAMN VULNERABLE and for educational purposes only. 
+
+DO NOT USE IN PRODUCTION. 
+
+---
+
 ## Forked v4
 
 This repo is forked from [Damn Vulnerable Defi v4](https://github.com/theredguild/damn-vulnerable-defi).
@@ -18,6 +26,7 @@ This repo is forked from [Damn Vulnerable Defi v4](https://github.com/theredguil
 Here, solutions will be integrated into the associated `.sol` file in [`test`](https://github.com/0x71pp17/damn-vulnerable-defi/tree/master/test) folder associated with each vulnerable code challenge.
 
 Walkthroughs will be included also within this repo, in an added [`walkthroughs`](https://github.com/0x71pp17/damn-vulnerable-defi/tree/master/walkthroughs) folder. Links will follow below.
+
 
 ## v4 Challenges
 
@@ -66,6 +75,7 @@ The walkthroughs include for each challenge:
 - **Fix recommendation** - How to properly secure the vulnerable code
 
 > Click link in challenge name to go direct to each challenge walkthrough
+> Unlinked Challenge names pending walkthrough, comming soon to add walkthrough and linke... stay tuned
 
 ## Classic Challenges (Updated for v4)
 1. [**Unstoppable**](https://github.com/0x71pp17/damn-vulnerable-defi/blob/master/walkthroughs/Unstoppable.md) - Flash loan denial of service
@@ -81,20 +91,6 @@ The walkthroughs include for each challenge:
 
 ## New V4 Challenges
 11. **Curvy Puppet** - Curve AMM price manipulation attack
-
-> **Coming soon**, new challenge walkthroughs will be linked below once ready...
-
-13. **Shards** - Fractional NFT system exploitation
-14. **Withdrawal** - Bridge withdrawal mechanism attack
-15. **The Rewarder (New)** - Advanced token distribution vulnerabilities
-
-
-
-
-
-
-## Disclaimer
-
-All code, practices and patterns in this public repository fork, and original, are DAMN VULNERABLE and for educational purposes only. 
-
-DO NOT USE IN PRODUCTION. 
+12. **Shards** - Fractional NFT system exploitation
+13. **Withdrawal** - Bridge withdrawal mechanism attack
+14. **The Rewarder (New)** - Advanced token distribution vulnerabilities
