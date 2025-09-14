@@ -130,7 +130,7 @@ contract NaiveReceiverChallenge is Test {
             (1000 ether, payable(recovery))
         );
 
-        // Owner is the original deployer of the pool (common in DVDF)
+        // Owner is the original deployer of the pool
         address owner = address(100); // Standard in this challenge
 
         // Use the forwarder to call multicall, so _msgSender() returns owner
