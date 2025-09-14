@@ -79,9 +79,9 @@ The walkthroughs include for each challenge:
 >
 > `Unlinked` challenge names indicate pending walkthrough; comming soon to add walkthrough content and remaining links... stay tuned
 
-## Classic Challenges (Updated for v4)
+### Classic Challenges (Updated for v4)
 1. [**Unstoppable**](https://github.com/0x71pp17/damn-vulnerable-defi/blob/master/walkthroughs/Unstoppable.md) - Flash loan denial of service
-2. [**Naive Receiver**](https://github.com/0x71pp17/damn-vulnerable-defi/blob/master/walkthroughs/NaiveReceiver.md) - Unauthorized flash loan exploitation
+2. [**Naive Receiver**](https://github.com/0x71pp17/damn-vulnerable-defi/blob/master/walkthroughs/NaiveReceiver.md) - Unauthorized flash loan exploitation 
 3. **Truster** - Arbitrary external call abuse
 4. **Side Entrance** - Flash loan reentrancy via deposit
 5. **The Rewarder** - Reward distribution manipulation (completely reworked in v4)
@@ -91,8 +91,12 @@ The walkthroughs include for each challenge:
 9. **Puppet v2** - Uniswap v2 price manipulation
 10. **Free Rider** - NFT marketplace payment flaw exploitation
 
-## New V4 Challenges
+### New V4 Challenges
 11. **Curvy Puppet** - Curve AMM price manipulation attack
 12. **Shards** - Fractional NFT system exploitation
 13. **Withdrawal** - Bridge withdrawal mechanism attack
 14. **The Rewarder (New)** - Advanced token distribution vulnerabilities
+
+## Code Analysis
+**In-Depth Analysis**: Understanding the Vulnerability and Secure Mitigations
+- [ERC-3156 Analysis](https://github.com/0x71pp17/damn-vulnerable-defi/blob/master/walkthroughs/ERC-3156&NaiveReceiver.md) in relation to `Naive Receiver`
