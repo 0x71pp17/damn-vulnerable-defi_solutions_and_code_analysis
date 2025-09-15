@@ -215,6 +215,8 @@ contract NaiveReceiverChallenge is Test {
      * So: player's nonce increases by only 1 → satisfies "≤2 transactions" rule.
      */
     forwarder.execute(request, signature);   
+    }
+
 
     /**
      * CHECKS SUCCESS CONDITIONS - DO NOT TOUCH
