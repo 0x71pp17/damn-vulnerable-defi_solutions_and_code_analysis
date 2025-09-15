@@ -96,7 +96,3 @@ The walkthroughs include for each challenge:
 12. **Shards** - Fractional NFT system exploitation
 13. **Withdrawal** - Bridge withdrawal mechanism attack
 14. **The Rewarder (New)** - Advanced token distribution vulnerabilities
-
-## Code Analysis
-**In-Depth Analysis**: Understanding the Vulnerability and Secure Mitigations
-- [ERC-3156 Analysis](https://github.com/0x71pp17/damn-vulnerable-defi/blob/master/walkthroughs/ERC-3156&NaiveReceiver.md) in relation to `Naive Receiver`
