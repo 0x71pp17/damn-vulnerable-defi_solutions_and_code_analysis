@@ -82,7 +82,7 @@ The walkthroughs include for each challenge:
 ### Classic Challenges (Updated for v4)
 1. [**Unstoppable**](https://github.com/0x71pp17/damn-vulnerable-defi/blob/master/walkthroughs/Unstoppable.md) - Flash loan denial of service
 2. [**Naive Receiver**](https://github.com/0x71pp17/damn-vulnerable-defi/blob/master/walkthroughs/NaiveReceiver.md) - Unauthorized flash loan exploitation 
-3. **Truster** - Arbitrary external call abuse
+3. [**Truster**](https://github.com/0x71pp17/damn-vulnerable-defi/walkthroughs/Truster.md) - Arbitrary external call abuse
 4. **Side Entrance** - Flash loan reentrancy via deposit
 5. **The Rewarder** - Reward distribution manipulation (completely reworked in v4)
 6. **Selfie** - Governance attack via flash loan voting
