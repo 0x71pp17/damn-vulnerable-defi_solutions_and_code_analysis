@@ -146,76 +146,73 @@ To use them, navigate to your Foundry project root and run the command for the c
 
 
 
-- **Unstoppable**: `forge test --mp test/unstoppable/Unstoppable.t.sol`
-```
+- **Unstoppable**:  
+```bash
 forge test --mp test/unstoppable/Unstoppable.t.sol
 ```
-- **Naive Receiver**: `forge test --mp test/naive-receiver/NaiveReceiver.t.sol`
-```
+- **Naive Receiver**:  
+```bash
 forge test --mp test/naive-receiver/NaiveReceiver.t.sol
 ```
-- **Truster**: `forge test --mp test/truster/Truster.t.sol`
-```
+- **Truster**:  
+```bash
 forge test --mp test/truster/Truster.t.sol
 ```
-- **Side Entrance**: `forge test --mp test/side-entrance/SideEntrance.t.sol`
-```
+- **Side Entrance**:  
+```bash
 forge test --mp test/side-entrance/SideEntrance.t.sol
 ```
-- **The Rewarder**: `forge test --mp test/the-rewarder/TheRewarder.t.sol`
-```
+- **The Rewarder**:  
+```bash
 forge test --mp test/the-rewarder/TheRewarder.t.sol
 ```
-- **Selfie**: `forge test --mp test/selfie/Selfie.t.sol`
-```
+- **Selfie**:  
+```bash
 forge test --mp test/selfie/Selfie.t.sol
 ```
-- **Compromised**: `forge test --mp test/compromised/Compromised.t.sol`
-```
+- **Compromised**:  
+```bash
 forge test --mp test/compromised/Compromised.t.sol
 ```
-- **Puppet, Puppet V2, Puppet V3**:
-`forge test --mp test/puppet/Puppet.t.sol`
-```
+- **Puppet, Puppet V2, Puppet V3**:  
+```bash
 forge test --mp test/puppet/Puppet.t.sol
 ```
-`forge test --mp test/puppet-v2/PuppetV2.t.sol`
-```
+```bash
 forge test --mp test/puppet-v2/PuppetV2.t.sol
 ```
-`forge test --mp test/puppet-v3/PuppetV3.t.sol`
-```
+```bash
 forge test --mp test/puppet-v3/PuppetV3.t.sol
 ```
-- **Free Rider**: `forge test --mp test/free-rider/FreeRider.t.sol`
-```
+- **Free Rider**:  
+```bash
 forge test --mp test/free-rider/FreeRider.t.sol
 ```
-- **Backdoor**: `forge test --mp test/backdoor/Backdoor.t.sol`
-```
+- **Backdoor**:  
+```bash
 forge test --mp test/backdoor/Backdoor.t.sol
 ```
-- **Climber**: `forge test --mp test/climber/Climber.t.sol`
-```
+- **Climber**:  
+```bash
 forge test --mp test/climber/Climber.t.sol
 ```
-- **Wallet Mining**: `forge test --mp test/wallet-mining/WalletMining.t.sol`
-```
+- **Wallet Mining**:  
+```bash
 forge test --mp test/wallet-mining/WalletMining.t.sol
 ```
-- **ABI Smuggling**: `forge test --mp test/abi-smuggling/ABISmuggling.t.sol`
-```
+- **ABI Smuggling**:  
+```bash
 forge test --mp test/abi-smuggling/ABISmuggling.t.sol
 ```
-- **Shards**: `forge test --mp test/shards/Shards.t.sol`
-```
+- **Shards**:  
+```bash
 forge test --mp test/shards/Shards.t.sol
 ```
-- **Curvy Puppet**: `forge test --mp test/curvy-puppet/CurvyPuppet.t.sol`
-```
+- **Curvy Puppet**:  
+```bash
 forge test --mp test/curvy-puppet/CurvyPuppet.t.sol
 ```
-- **Withdrawal**: `forge test --mp test/withdrawal/Withdrawal.t.sol`
-```
+- **Withdrawal**:  
+```bash
 forge test --mp test/withdrawal/Withdrawal.t.sol
 ```
