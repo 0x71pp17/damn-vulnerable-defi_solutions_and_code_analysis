@@ -96,3 +96,126 @@ The walkthroughs include for each challenge:
 12. **Shards** - Fractional NFT system exploitation
 13. **Withdrawal** - Bridge withdrawal mechanism attack
 14. **The Rewarder (New)** - Advanced token distribution vulnerabilities
+
+---
+
+## Testing with Foundry
+
+After cloning the repo, navigate into the project directory and run `forge init --force .` to initialize it as a Foundry project. This command sets up the necessary Foundry directory structure (`src`, `test`, `lib`, `script`) and configuration file (`foundry.toml`) even though the directory is not empty. Once initialized, you can compile the contracts with `forge build` and run tests with `forge test`.
+
+> The `forge test` command **both compiles and tests** the project by default. It automatically runs the compilation step if the project hasn't been compiled yet or if any source files have changed since the last compilation. While `forge build` is used specifically for compiling the project, running `forge test` will trigger a build as its first step before executing the tests.
+
+
+
+### Foundry Tests
+
+To run Foundry tests on specific files or folders, use the `--match-path` flag with a glob pattern.
+
+```bash
+forge test --match-path 'test/specific_folder/*'
+forge test --match-path 'test/MyTest.t.sol'
+```
+
+You can also filter by contract or test name using `--match-contract` or `--match-test`.
+
+---
+
+In Foundry, **single-dash (`-`)** flags are short aliases for **double-dash (`--`)** long flags.
+
+For `--match-path`, the correct short alias is **`-mp`** (two characters after the single dash). So, you can use either:
+
+```bash
+forge test --match-path 'test/MyTest.t.sol'
+```
+
+or its equivalent short form:
+
+```bash
+forge test -mp 'test/MyTest.t.sol'
+```
+
+Other common examples are `-c` for `--match-contract` and `-m` for `--match-test`.
+
+---
+
+### Foundry Testing in Damn-Vulnerable-DeFi
+
+This list provides **specific Foundry CLI commands** to run tests for individual Damn-Vulnerable-DeFi challenges. Each command uses the `--match-path` (`-mp`) flag to target a single test file by its path within the `test/` directory.
+
+To use them, navigate to your Foundry project root and run the command for the challenge you want to test. For example, `forge test --mp test/unstoppable/Unstoppable.t.sol` compiles the project and executes only the tests defined in that specific file, which is useful for focusing on one challenge at a time.
+
+
+
+- **Unstoppable**: `forge test --mp test/unstoppable/Unstoppable.t.sol`
+```
+forge test --mp test/unstoppable/Unstoppable.t.sol
+```
+- **Naive Receiver**: `forge test --mp test/naive-receiver/NaiveReceiver.t.sol`
+```
+forge test --mp test/naive-receiver/NaiveReceiver.t.sol
+```
+- **Truster**: `forge test --mp test/truster/Truster.t.sol`
+```
+forge test --mp test/truster/Truster.t.sol
+```
+- **Side Entrance**: `forge test --mp test/side-entrance/SideEntrance.t.sol`
+```
+forge test --mp test/side-entrance/SideEntrance.t.sol
+```
+- **The Rewarder**: `forge test --mp test/the-rewarder/TheRewarder.t.sol`
+```
+forge test --mp test/the-rewarder/TheRewarder.t.sol
+```
+- **Selfie**: `forge test --mp test/selfie/Selfie.t.sol`
+```
+forge test --mp test/selfie/Selfie.t.sol
+```
+- **Compromised**: `forge test --mp test/compromised/Compromised.t.sol`
+```
+forge test --mp test/compromised/Compromised.t.sol
+```
+- **Puppet, Puppet V2, Puppet V3**:
+`forge test --mp test/puppet/Puppet.t.sol`
+```
+forge test --mp test/puppet/Puppet.t.sol
+```
+`forge test --mp test/puppet-v2/PuppetV2.t.sol`
+```
+forge test --mp test/puppet-v2/PuppetV2.t.sol
+```
+`forge test --mp test/puppet-v3/PuppetV3.t.sol`
+```
+forge test --mp test/puppet-v3/PuppetV3.t.sol
+```
+- **Free Rider**: `forge test --mp test/free-rider/FreeRider.t.sol`
+```
+forge test --mp test/free-rider/FreeRider.t.sol
+```
+- **Backdoor**: `forge test --mp test/backdoor/Backdoor.t.sol`
+```
+forge test --mp test/backdoor/Backdoor.t.sol
+```
+- **Climber**: `forge test --mp test/climber/Climber.t.sol`
+```
+forge test --mp test/climber/Climber.t.sol
+```
+- **Wallet Mining**: `forge test --mp test/wallet-mining/WalletMining.t.sol`
+```
+forge test --mp test/wallet-mining/WalletMining.t.sol
+```
+- **ABI Smuggling**: `forge test --mp test/abi-smuggling/ABISmuggling.t.sol`
+```
+forge test --mp test/abi-smuggling/ABISmuggling.t.sol
+```
+- **Shards**: `forge test --mp test/shards/Shards.t.sol`
+```
+forge test --mp test/shards/Shards.t.sol
+```
+- **Curvy Puppet**: `forge test --mp test/curvy-puppet/CurvyPuppet.t.sol`
+```
+forge test --mp test/curvy-puppet/CurvyPuppet.t.sol
+```
+- **Withdrawal**: `forge test --mp test/withdrawal/Withdrawal.t.sol`
+```
+forge test --mp test/withdrawal/Withdrawal.t.sol
+```
