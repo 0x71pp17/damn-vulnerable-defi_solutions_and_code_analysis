@@ -71,11 +71,12 @@ contract TrusterChallenge is Test {
 }
 
 /**
+ * @author 0x71pp17
  * @notice Exploit contract to drain all DVT tokens from TrusterLenderPool in a single transaction
  * @dev Leverages the unrestricted `functionCall` in flashLoan to approve and transfer tokens
- * @param _pool Instance of the TrusterLenderPool being exploited
- * @param _token Instance of the DamnValuableToken managed by the pool
- * @param _recovery Target address to receive all stolen tokens
+ * @dev _pool Instance of the TrusterLenderPool being exploited
+ * @dev _token Instance of the DamnValuableToken managed by the pool
+ * @dev _recovery Target address to receive all stolen tokens
  */
 contract TrusterExploiter {
     constructor(TrusterLenderPool _pool, DamnValuableToken _token, address _recovery) {
