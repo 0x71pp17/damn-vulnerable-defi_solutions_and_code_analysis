@@ -25,7 +25,7 @@ This repo is forked from [Damn Vulnerable Defi v4](https://github.com/theredguil
 
 Here, **working solutions** will be integrated into the associated `.sol` file in [`test`](https://github.com/0x71pp17/damn-vulnerable-defi/tree/master/test) folder associated with each vulnerable code challenge.
 
-Walkthroughs with explanation of **why each solution works** will be included also within this repo, in an added [`walkthroughs`](https://github.com/0x71pp17/damn-vulnerable-defi/tree/master/walkthroughs) folder. Links will follow below.
+Walkthroughs with explanation of the **integrated solutions** will be included also within this repo, in an added [`walkthroughs`](https://github.com/0x71pp17/damn-vulnerable-defi/tree/master/walkthroughs) folder. Links will follow below.
 
 
 ## v4 Challenges
