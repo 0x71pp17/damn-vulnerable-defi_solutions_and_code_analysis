@@ -169,8 +169,8 @@ contract TheRewarderChallenge is Test {
         uint256 playerWethAmount = 1171088749244340;
     
         // Calculate number of claims needed
-        uint256 dvtClaims = TOTAL_DVT_DISTRIBUTION_AMOUNT / playerDvtAmount;
-        uint256 wethClaims = TOTAL_WETH_DISTRIBUTION_AMOUNT / playerWethAmount;
+        uint256 dvtClaims = dvt.balanceOf(address(distributor)) / playerDvtAmount;
+        uint256 wethClaims = weth.balanceOf(address(distributor)) / playerWethAmount;   
         uint256 totalClaims = dvtClaims + wethClaims;
     
         // Setup tokens
