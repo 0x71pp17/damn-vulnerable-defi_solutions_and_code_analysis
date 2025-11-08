@@ -18,11 +18,31 @@ bytes32[] memory wethLeaves = _loadRewards("/test/the-rewarder/weth-distribution
 - Loads all Merkle leaves to generate valid proofs for the player's claims.
 
 #### 3. **Calculate Number of Repeated Claims**
+
+```solidity
+uint256 dvtClaims = dvt.balanceOf(address(distributor)) / playerDvtAmount;
+uint256 wethClaims = weth.balanceOf(address(distributor)) / playerWethAmount;   
+```
+- Uses **actual remaining balances** after Alice’s claim.
+- Ensures no over-claiming and meets test thresholds. 
+
+---
+
+Alternatively can use the following (former solution here)
+
 ```solidity
 uint256 dvtClaims = TOTAL_DVT_DISTRIBUTION_AMOUNT / playerDvtAmount; // ~867
 uint256 wethClaims = TOTAL_WETH_DISTRIBUTION_AMOUNT / playerWethAmount; // ~853
 ```
 - Determines how many times the player's claim can be repeated to drain the full balance.
+
+
+> Both approaches work because:
+- The challenge goal is to reduce the distributor's balance below the threshold (`1e16` for DVT, `1e15` for WETH), not necessarily to claim *exactly* the remaining amount.
+- Using `TOTAL_...` assumes full distribution, which slightly overestimates but still drains enough.
+- Using `balanceOf` dynamically reads the actual available balance, reflecting  the real state post-Alice’s claim, making it **more robust and precise**, especially if state changes occur.
+
+
 
 #### 4. **Build Claim Array**
 ```solidity
