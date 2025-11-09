@@ -78,6 +78,7 @@ The walkthroughs include for each challenge:
 > Click link in challenge name to go direct to each challenge walkthrough
 >
 > `Unlinked` challenge names indicate pending walkthrough; comming soon to add walkthrough content and remaining links... stay tuned
+>
 > Also note, some walkthroughs have only a summary at this time, and will be expanded in more detail over time to cover broader explanation and why each exploit works
 
 ### Classic Challenges (Updated for v4)
