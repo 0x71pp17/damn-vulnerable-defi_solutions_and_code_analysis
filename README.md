@@ -23,7 +23,7 @@ DO NOT USE IN PRODUCTION.
 
 This repo is forked from [Damn Vulnerable Defi v4](https://github.com/theredguild/damn-vulnerable-defi).
 
-Here, **working solutions** will be integrated into the associated `.sol` file in [`test`](https://github.com/0x71pp17/damn-vulnerable-defi/tree/master/test) folder associated with each vulnerable code challenge.
+Here, **working solutions** will be integrated into the associated `.sol` file in [`test`](https://github.com/0x71pp17/damn-vulnerable-defi/tree/master/test) folder of each vulnerable code challenge.
 
 Walkthroughs with explanation of the **integrated solutions** will be included also within this repo, in an added [`walkthroughs`](https://github.com/0x71pp17/damn-vulnerable-defi/tree/master/walkthroughs) folder. Links will follow below.
 
