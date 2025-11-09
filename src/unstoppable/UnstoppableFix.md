@@ -1,7 +1,11 @@
 
 **File:** `src/unstoppable/UnstoppableVault.sol`
-**Vulnerable Code (lines ~87-89):**
+**Vulnerable Code:**
 ```solidity
+function totalAssets() public view override nonReadReentrant returns (uint256) {
+    return asset.balanceOf(address(this));
+}
+
 function flashLoan(IERC3156FlashBorrower receiver, address _token, uint256 amount, bytes calldata data)
     external returns (bool)
 {
