@@ -73,7 +73,7 @@ The walkthroughs include for each challenge:
 - **Complete exploit code** - Exact Solidity code to add to test files
 - **Why it works** - Technical explanation of the attack vector
 
-
+### Challenges Walkthrough Links
 
 > Click link in challenge name to go direct to each challenge walkthrough
 >
