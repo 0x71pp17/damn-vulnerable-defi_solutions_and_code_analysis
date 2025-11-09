@@ -222,18 +222,20 @@ forge test --mp test/withdrawal/Withdrawal.t.sol
 
 ## Code Analysis
 
-Deeper code analysis included here for each challenge covers:
+Deeper code analysis included here covers:
 
 - **Root Cause** – Detailed examination of the vulnerability’s origin in the contract logic  
-- **Fix** – Secure implementation changes to eliminate the flaw  
-- **Why it works** – Explanation of how the fix mitigates the issue and aligns with security best practices
+- **Fix** – Secure implementation changes to eliminate the identified flaw(s)  
+- **Why it works** – Explanation of how the fix mitigates the issue
+
+Deeper code analysis performed here to identify mitigations for flaws exploited during each challenge. It goes beyond the exploit to examine root causes and propose secure coding updates that would defend the contract and prevent future exploitation.
 
 
 ### Challenges Code Analysis Links
 
 > Click link in challenge name to go direct to code analysis
 >
-> `Unlinked` challenge names indicate pending code analysis; comming soon to add deeper code analysis content and remaining links... stay tuned
+> `Unlinked` challenge names indicate pending code analysis. This is added now where deeper understanding 
 
 1. **Unstoppable** - Flash loan denial of service
 2. **Naive Receiver** - Unauthorized flash loan exploitation 
