@@ -78,6 +78,7 @@ The walkthroughs include for each challenge:
 > Click link in challenge name to go direct to each challenge walkthrough
 >
 > `Unlinked` challenge names indicate pending walkthrough; comming soon to add walkthrough content and remaining links... stay tuned
+> Also note, some walkthroughs have only a summary at this time, and will be expanded in more detail over time to cover broader explanation and why each exploit works
 
 ### Classic Challenges (Updated for v4)
 1. [**Unstoppable**](https://github.com/0x71pp17/damn-vulnerable-defi/blob/master/walkthroughs/Unstoppable.md) - Flash loan denial of service
@@ -216,3 +217,35 @@ forge test --mp test/curvy-puppet/CurvyPuppet.t.sol
 ```bash
 forge test --mp test/withdrawal/Withdrawal.t.sol
 ```
+
+---
+
+## Code Analysis
+
+Deeper code analysis included here for each challenge covers:
+
+- **Root Cause** – Detailed examination of the vulnerability’s origin in the contract logic  
+- **Fix** – Secure implementation changes to eliminate the flaw  
+- **Why it works** – Explanation of how the fix mitigates the issue and aligns with security best practices
+
+> Click link in challenge name to go direct to code analysis
+>
+> `Unlinked` challenge names indicate pending code analysis; comming soon to add deeper code analysis content and remaining links... stay tuned
+
+### Classic Challenges (Updated for v4)
+1. **Unstoppable**](https://github.com/0x71pp17/damn-vulnerable-defi/blob/master/walkthroughs/Unstoppable.md - Flash loan denial of service
+2. **Naive Receiver**https://github.com/0x71pp17/damn-vulnerable-defi/blob/master/walkthroughs/NaiveReceiver.md - Unauthorized flash loan exploitation 
+3. **Truster**https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Truster.md - Arbitrary external call abuse
+4. **Side Entrance** - Flash loan reentrancy via deposit
+5. [**The Rewarder**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/src/the-rewarder/RewarderFix.md) - Reward distribution manipulation (completely reworked in v4)
+6. **Selfie** - Governance attack via flash loan voting
+7. **Compromised** - Oracle manipulation with leaked private keys
+8. **Puppet** - Uniswap v1 price manipulation
+9. **Puppet v2** - Uniswap v2 price manipulation
+10. **Free Rider** - NFT marketplace payment flaw exploitation
+
+### New V4 Challenges
+11. **Curvy Puppet** - Curve AMM price manipulation attack
+12. **Shards** - Fractional NFT system exploitation
+13. **Withdrawal** - Bridge withdrawal mechanism attack
+14. **The Rewarder (New)** - Advanced token distribution vulnerabilities
