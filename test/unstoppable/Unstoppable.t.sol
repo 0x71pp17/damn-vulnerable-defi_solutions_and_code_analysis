@@ -87,18 +87,24 @@ contract UnstoppableChallenge is Test {
         monitorContract.checkFlashLoan(100e18);
     }
 
-    /*
-    * SOLUTION: Break the vault's invariant by sending tokens directly to it.
-    * 
-    * The vault's flashLoan function relies on an assumption:
-    *   totalAssets() == totalSupply + amount
-    * 
-    * However, totalAssets() is only updated when users deposit via the deposit() function.
-    * By transferring tokens directly (bypassing deposit), we increase the vault's actual
-    * ERC-20 balance without updating totalSupply, breaking the accounting invariant.
-    * 
-    * As a result, every future flash loan will revert, fulfilling the challenge goal.
-    */ 
+    /**
+     * =========================================================
+     * SOLUTION — test_unstoppable()
+     * =========================================================
+     * Attack: ERC4626 share/balance invariant break (1-line DoS)
+     *
+     * The vault's flashLoan checks this invariant before lending:
+     *   convertToShares(totalSupply) == balanceBefore
+     *
+     * totalAssets() only updates when users deposit via deposit().
+     * A direct token transfer increases the vault's actual ERC-20
+     * balance without minting shares or updating totalSupply —
+     * permanently breaking the accounting invariant.
+     *
+     * Every subsequent flash loan reverts on this check, halting
+     * the vault. The monitor detects the failure and pauses it.
+     * =========================================================
+     */
     function test_unstoppable() public checkSolvedByPlayer {
        // Direct transfer increases actual token balance but not totalSupply
        token.transfer(address(vault), 1); 
