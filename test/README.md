@@ -1,4 +1,4 @@
-# Running Tests with `Foundry`
+# Testing with `Foundry`
 
 This folder contains Foundry test files for all 18 Damn Vulnerable DeFi v4 challenges. Each subfolder corresponds to one challenge and contains a `.t.sol` file with the solution integrated.
 
