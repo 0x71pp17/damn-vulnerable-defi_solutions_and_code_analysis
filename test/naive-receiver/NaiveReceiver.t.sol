@@ -74,8 +74,25 @@ contract NaiveReceiverChallenge is Test {
     }
 
     /**
-    * SOLUTION coded and commented below
-    */ 
+     * =========================================================
+     * SOLUTION — test_naiveReceiver()
+     * =========================================================
+     * Attack: Multicall + meta-transaction caller spoofing
+     *
+     * This solution is broken into 7 documented parts below:
+     *   Part 1 — Drain receiver via 10 zero-amount flash loans
+     *   Part 2 — Encode withdraw with spoofed deployer calldata
+     *   Part 3 — Bundle all 11 calls into a single multicall
+     *   Part 4 — Wrap in a BasicForwarder meta-transaction request
+     *   Part 5 — Hash request using EIP-712 (ERC-2771) standard
+     *   Part 6 — Sign hash with player private key (vm.sign)
+     *   Part 7 — Execute via forwarder — one tx, nonce ≤ 2
+     *
+     * Key insight: _msgSender() reads last 20 bytes of calldata
+     * when called via trusted forwarder — appending deployer's
+     * address bypasses the withdraw() access control entirely.
+     * =========================================================
+     */ 
     function test_naiveReceiver() public checkSolvedByPlayer {
         /*
         * === GOAL: Drain both the receiver and pool in ≤2 transactions ===
