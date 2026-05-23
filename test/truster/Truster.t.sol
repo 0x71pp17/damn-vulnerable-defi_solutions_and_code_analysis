@@ -48,7 +48,15 @@ contract TrusterChallenge is Test {
     }
 
     /**
-     * CODE YOUR SOLUTION HERE
+     * =========================================================
+     * SOLUTION — test_truster()
+     * =========================================================
+     * Attack: Arbitrary external call via flash loan (1 tx)
+     * 1. Flash loan 0 tokens — amount irrelevant, call executes
+     * 2. target.functionCall(data) runs token.approve(player, MAX)
+     *    with pool as msg.sender — pool approves its own tokens
+     * 3. transferFrom(pool → recovery) drains all 1M DVT
+     * =========================================================
      */
     function test_truster() public checkSolvedByPlayer {
         /* Deploy and exploit the vulnerability, 
@@ -71,12 +79,24 @@ contract TrusterChallenge is Test {
 }
 
 /**
+ * =========================================================
+ * SOLUTION CONTRACT — TrusterAttacker
+ * =========================================================
+ * Attack: Arbitrary external call via flash loan (1 tx)
+ * 1. Flash loan 0 tokens — amount is irrelevant, call executes
+ * 2. target.functionCall(data) runs token.approve(attacker, MAX)
+ *    with pool as msg.sender — pool approves its own tokens
+ * 3. transferFrom(pool → recovery) drains all 1M DVT
+ * All exploit logic runs atomically in the constructor.
+ * Placed after the test class per DVDv4 convention.
+ * =========================================================
+ *
  * @author 0x71pp17
  * @notice Exploit contract to drain all DVT tokens from TrusterLenderPool in a single transaction
  * @dev Leverages the unrestricted `functionCall` in flashLoan to approve and transfer tokens
- * @dev _pool Instance of the TrusterLenderPool being exploited
- * @dev _token Instance of the DamnValuableToken managed by the pool
- * @dev _recovery Target address to receive all stolen tokens
+ * @param _pool Instance of the TrusterLenderPool being exploited
+ * @param _token Instance of the DamnValuableToken managed by the pool
+ * @param _recovery Target address to receive all stolen tokens
  */
 contract TrusterExploiter {
     constructor(TrusterLenderPool _pool, DamnValuableToken _token, address _recovery) {
