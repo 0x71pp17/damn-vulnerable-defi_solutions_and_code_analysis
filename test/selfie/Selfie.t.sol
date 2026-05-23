@@ -60,7 +60,17 @@ contract SelfieChallenge is Test {
     }
 
     /**
-     * SOLUTION CODED HERE
+     * =========================================================
+     * SOLUTION — test_selfie()
+     * =========================================================
+     * Attack: Flash loan governance vote
+     * 1. Borrow all 1.5M DVT from pool (free, no fee)
+     * 2. Self-delegate to register voting power (ERC20Votes)
+     * 3. Queue emergencyExit(recovery) — passes >50% vote check
+     * 4. Repay flash loan — proposal persists in governance
+     * 5. Warp 2 days past governance timelock
+     * 6. Execute proposal — pool drained to recovery
+     * =========================================================
      */
     function test_selfie() public checkSolvedByPlayer {
         SelfieAttacker selfieAttacker = new SelfieAttacker(
@@ -86,7 +96,15 @@ contract SelfieChallenge is Test {
 
 
 /**
- * SOLUTION CONTRACT CODE ALSO ADDED HERE
+ * =========================================================
+ * SOLUTION CONTRACT — SelfieAttacker
+ * =========================================================
+ * Implements IERC3156FlashBorrower to receive the flash loan
+ * callback from SelfiePool. The onFlashLoan() function is
+ * where the governance manipulation happens — delegate,
+ * queue, approve repayment — all within one transaction.
+ * Placed after the test class per DVDv4 convention.
+ * =========================================================
  */
 contract SelfieAttacker is IERC3156FlashBorrower {
 
