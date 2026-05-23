@@ -6,12 +6,18 @@ The vulnerability lies in the `flashLoan` function's unrestricted external call:
 
 ```solidity
 function flashLoan(uint256 amount, address borrower, address target, bytes calldata data)
-    external nonReentrant returns (bool)
+    external
+    nonReentrant
+    returns (bool)
 {
     uint256 balanceBefore = token.balanceOf(address(this));
+
     token.transfer(borrower, amount);
-    target.functionCall(data);  // ← executes any calldata on any target
-    if (token.balanceOf(address(this)) < balanceBefore) revert RepayFailed();
+    target.functionCall(data);  // ← executes any calldata on any target, as the pool
+
+    if (token.balanceOf(address(this)) < balanceBefore) {
+        revert RepayFailed();
+    }
     return true;
 }
 ```
@@ -19,9 +25,10 @@ function flashLoan(uint256 amount, address borrower, address target, bytes calld
 - `target` — fully caller-controlled, any contract address accepted
 - `data` — fully caller-controlled, any calldata accepted
 - The call executes **as the pool** (`msg.sender == address(pool)`)
+- `borrower` and `target` are entirely independent — tokens go to `borrower`, the arbitrary call goes to `target`; the two are never linked
 - No validation on what function is being called or who the target is
 
-This means any caller can force the pool to execute arbitrary logic on any contract — including calling `approve()` on its own token, granting a third party unlimited spending rights.
+The decoupling of `borrower` from `target` is what makes this exploitable in a single transaction with zero tokens borrowed: the attacker sets `amount = 0` (no tokens move, repayment check trivially passes), `borrower = address(this)` (irrelevant), and `target = address(token)` with `data = approve(attacker, MAX)`. The pool executes the approval as itself — the loan amount is never part of the equation.
 
 ### Exploit
 
@@ -51,7 +58,7 @@ _pool.flashLoan(0, address(this), address(_token), data);
 _token.transferFrom(address(_pool), _recovery, _token.balanceOf(address(_pool)));
 ```
 
-- **Step 1** — `amount = 0` means the repayment check trivially passes (`balanceBefore == balanceAfter`). No tokens need to be borrowed or returned.
+- **Step 1** — `amount = 0` means `balanceBefore == balanceAfter`, so the repayment check trivially passes. No tokens need to be borrowed or returned.
 - **Step 2** — `target.functionCall(data)` runs `token.approve(exploiter, 1M DVT)` with `pool` as `msg.sender`. The pool unknowingly approves its own tokens to the attacker.
 - **Step 3** — The approval is live the moment `flashLoan` returns. `transferFrom` immediately pulls all 1M DVT to recovery within the same constructor call.
 
