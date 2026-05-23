@@ -42,7 +42,16 @@ contract SideEntranceChallenge is Test {
     }
 
     /**
-     * CODE YOUR SOLUTION HERE
+     * =========================================================
+     * SOLUTION — test_sideEntrance()
+     * =========================================================
+     * Attack: Flash loan repayment via deposit() (balance check bypass)
+     * 1. Flash loan all 1000 ETH from pool
+     * 2. execute() deposits borrowed ETH back into pool
+     *    → pool.balance unchanged, loan "repaid" via deposit credit
+     * 3. withdraw() pulls ETH out using our deposit balance
+     * 4. Transfer all ETH to recovery
+     * =========================================================
      */
     function test_sideEntrance() public checkSolvedByPlayer {
         // Deploy exploit contract with pool and recovery addresses
@@ -62,9 +71,21 @@ contract SideEntranceChallenge is Test {
 
 
 /**
- * @notice Exploit contract that drains ETH from SideEntranceLenderPool
- * @dev Leverages unguarded flash loan and deposit mechanism to steal funds
- *      by depositing borrowed ETH and withdrawing it as if it were own funds
+ * =========================================================
+ * SOLUTION CONTRACT — SideEntranceExploit
+ * =========================================================
+ * Attack: Flash loan repayment via deposit() balance bypass
+ * 1. Receives flash loan via execute() callback
+ * 2. Deposits borrowed ETH back — pool balance check passes
+ * 3. Credits our balance so we can withdraw after the loan
+ * 4. Sends all ETH to recovery on withdraw
+ * Placed after the test class per DVDv4 convention.
+ * =========================================================
+ *
+ * @notice Exploit contract for SideEntranceLenderPool
+ * @dev Implements IFlashLoanEtherReceiver — pool calls execute()
+ *      during the loan. Re-deposits borrowed ETH to satisfy the
+ *      balance invariant while building a withdrawable credit.
  */
 contract SideEntranceExploit {
     SideEntranceLenderPool public pool;
