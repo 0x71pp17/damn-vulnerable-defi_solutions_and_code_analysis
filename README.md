@@ -9,13 +9,13 @@ Use Damn Vulnerable DeFi to:
 - Sharpen your auditing and bug-hunting skills.
 - Learn how to detect, test and fix flaws in realistic scenarios to become a security-minded developer.
 - Benchmark smart contract security tooling.
-- Create educational content on smart contract security with articles, tutorials, talks, courses, workshops, trainings, CTFs, etc. 
+- Create educational content on smart contract security with articles, tutorials, talks, courses, workshops, trainings, CTFs, etc.
 
 ## Disclaimer
 
-All code, practices and patterns in this public repository fork, and original, are DAMN VULNERABLE and for educational purposes only. 
+All code, practices and patterns in this public repository fork, and original, are DAMN VULNERABLE and for educational purposes only.
 
-DO NOT USE IN PRODUCTION. 
+DO NOT USE IN PRODUCTION.
 
 ---
 
@@ -23,200 +23,169 @@ DO NOT USE IN PRODUCTION.
 
 This repo is forked from [Damn Vulnerable Defi v4](https://github.com/theredguild/damn-vulnerable-defi).
 
-Here, **working solutions** will be integrated into the associated `.sol` file in [`test`](https://github.com/0x71pp17/damn-vulnerable-defi/tree/master/test) folder of each vulnerable code challenge.
+Here, **working solutions** will be integrated into the associated `.sol` file in [`test`](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/tree/master/test) folder of each vulnerable code challenge.
 
-Walkthroughs with explanation of the **integrated solutions** will be included also within this repo, in an added [`walkthroughs`](https://github.com/0x71pp17/damn-vulnerable-defi/tree/master/walkthroughs) folder. Links will follow below.
+Walkthroughs with explanation of the **integrated solutions** will be included also within this repo, in an added [`walkthroughs`](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/tree/master/walkthroughs) folder. Links will follow below.
 
 
 ## v4 Challenges
 
-Damn Vulnerable DeFi v4 includes a series of challenges designed to teach security vulnerabilities in decentralized finance (DeFi) applications. The new version has migrated to [Foundry](https://getfoundry.sh), updated dependencies, and modernized existing challenges, with some previous solutions potentially no longer working All challenges now require depositing funds into designated recovery accounts
+Damn Vulnerable DeFi v4 includes **18 challenges** designed to teach security vulnerabilities in decentralized finance (DeFi) applications. The new version has migrated to [Foundry](https://getfoundry.sh), updated all dependencies (e.g., OpenZeppelin Contracts v5), and modernized all existing challenges. All challenges now require depositing funds into designated recovery accounts.
 
-The challenges in Damn Vulnerable DeFi v4 include:
+Solutions and walkthroughs in this repo cover all 18 challenges available in the forked repository as of its last update (March 2025). The v4 challenges incorporate advanced features such as multicalls, meta-transactions, permit2, Merkle proofs, and ERC1155.
 
-- **Unstoppable**: Exploit a flash loan invariant by disrupting the balance check through a direct token transfer to the vault
-- **Naive Receiver**: Drain funds from a receiver by exploiting unguarded flash loan callbacks and using meta-transactions to perform multiple operations in one transaction
-- **Truster**: Exploit arbitrary delegate calls in a flash loan to approve and transfer all tokens from the pool
-- **Side Entrance**: Abuse a non-standard balance check in a flash loan by depositing borrowed funds back into the pool to fake repayment
-- **The Rewarder**: Exploit a timing vulnerability in a reward distribution mechanism using a flash loan to manipulate reward calculations
-- **Selfie**: Gain governance control by manipulating token balances via a flash loan to pass a malicious proposal
-- **Compromised**: Recover private keys from leaked hash prefixes to steal funds
-- **Puppet, Puppet V2, Puppet V3**: Manipulate pricing or collateralization in lending protocols through oracle or liquidity manipulation
-- **Free Rider**: Use a Uniswap flash swap to buy NFTs, claim a bounty, and repay the loan in one transaction
-- **Backdoor**: Exploit a wallet factory's setup function to execute malicious code during wallet creation and drain tokens
-- **Climber**: Chain multiple actions through a proxy upgrade mechanism to drain funds
-- **Wallet Mining**: Exploit predictable wallet address generation to claim rewards
-- **ABI Smuggling**: Bypass security checks using dynamic bytecode loading
-- **Shards**: Exploit improper handling of ERC1155 tokens in a multi-token vault
-- **Curvy Puppet**: Manipulate Curve AMM pricing to exploit a lending protocol
-- **Withdrawal**: Exploit a bridge mechanism between L1 and L2 by manipulating withdrawal proofs or balances
+| # | Challenge | Vulnerability Category |
+|---|-----------|----------------------|
+| 1 | Unstoppable | Flash loan denial of service |
+| 2 | Naive Receiver | Unauthorized flash loan + meta-transaction caller spoofing |
+| 3 | Truster | Arbitrary external call in flash loan |
+| 4 | Side Entrance | Flash loan reentrancy via deposit |
+| 5 | The Rewarder | Intra-transaction replay via delayed state write |
+| 6 | Selfie | Flash loan governance attack |
+| 7 | Compromised | Oracle manipulation via leaked private keys |
+| 8 | Puppet | Uniswap v1 spot price oracle manipulation |
+| 9 | Puppet V2 | Uniswap v2 price oracle manipulation |
+| 10 | Free Rider | NFT marketplace payment flaw + flash swap |
+| 11 | Backdoor | Gnosis Safe setup callback exploit |
+| 12 | Climber | Timelock access control + proxy upgrade chain |
+| 13 | Wallet Mining | Predictable CREATE2 address exploitation |
+| 14 | Puppet V3 | Uniswap v3 TWAP oracle manipulation |
+| 15 | ABI Smuggling | Calldata authorization bypass |
+| 16 | Shards | Fractional NFT rounding exploit |
+| 17 | Curvy Puppet | Curve read-only reentrancy + lending liquidation |
+| 18 | Withdrawal | Bridge withdrawal without Merkle proof validation |
 
-Four brand new challenges introduced in v4 are `Curvy Puppet, Shards, Withdrawal, and The Rewarder` (which was completely reworked) These challenges incorporate advanced features such as multicalls, meta-transactions, permit2, Merkle proofs, and ERC1155
-
-The challenges cover critical DeFi vulnerabilities like:
-
-Flash loan manipulation
-Price oracle attacks
-Governance token voting attacks
-Reentrancy exploits
-Access control failures
-NFT marketplace bugs 
+The challenges cover critical DeFi vulnerabilities including flash loan manipulation, price oracle attacks, governance voting attacks, reentrancy exploits, access control failures, and NFT marketplace bugs.
 
 
 ## Walkthroughs
 
-Damn Vulnerable DeFi v4 walkthroughs here cover the classic challenges (1-10) and the new v4 challenges. 
+Walkthroughs here cover all 18 v4 challenges. Each walkthrough includes:
 
-The walkthroughs include for each challenge:
-
-- **Vulnerability explanation** - What the security flaw is
-- **Complete exploit code** - Exact Solidity code to add to test files
-- **Why it works** - Technical explanation of the attack vector
+- **Vulnerability explanation** — What the security flaw is and the vulnerable code
+- **Complete exploit code** — Exact Solidity solution integrated into the test file
+- **Why it works** — Technical explanation of the attack vector and mitigation
 
 ### Challenges Walkthrough Links
 
-> Click link in challenge name to go direct to each challenge walkthrough
->
-> `Unlinked` challenge names indicate pending walkthrough; comming soon to add walkthrough content and remaining links... stay tuned
->
-> Also note, some walkthroughs have only a summary at this time, and will be expanded in more detail over time to cover broader explanation and why each exploit works
+> Click a linked challenge name to go directly to its walkthrough.  
+> `Unlinked` challenge names indicate a pending walkthrough — coming soon.
 
-### Classic Challenges (Updated for v4)
-1. [**Unstoppable**](https://github.com/0x71pp17/damn-vulnerable-defi/blob/master/walkthroughs/Unstoppable.md) - Flash loan denial of service
-2. [**Naive Receiver**](https://github.com/0x71pp17/damn-vulnerable-defi/blob/master/walkthroughs/NaiveReceiver.md) - Unauthorized flash loan exploitation 
-3. [**Truster**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Truster.md) - Arbitrary external call abuse
-4. [**Side Entrance**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/SideEntrance.md) - Flash loan reentrancy via deposit
-5. [**The Rewarder**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Rewarder.md) - Reward distribution manipulation (completely reworked in v4)
-6. [**Selfie**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Selfie.md) - Governance attack via flash loan voting
-7. [**Compromised**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Compromised.md) - Oracle manipulation with leaked private keys
-8. **Puppet** - Uniswap v1 price manipulation
-9. **Puppet v2** - Uniswap v2 price manipulation
-10. **Free Rider** - NFT marketplace payment flaw exploitation
-
-### New V4 Challenges
-11. **Curvy Puppet** - Curve AMM price manipulation attack
-12. **Shards** - Fractional NFT system exploitation
-13. **Withdrawal** - Bridge withdrawal mechanism attack
-14. **The Rewarder (New)** - Advanced token distribution vulnerabilities
+| # | Challenge | Walkthrough | Description |
+|---|-----------|-------------|-------------|
+| 1 | [**Unstoppable**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Unstoppable.md) | ✅ | Flash loan denial of service |
+| 2 | [**Naive Receiver**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/NaiveReceiver.md) | ✅ | Unauthorized flash loan + meta-transaction caller spoofing |
+| 3 | [**Truster**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Truster.md) | ✅ | Arbitrary external call abuse |
+| 4 | [**Side Entrance**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/SideEntrance.md) | ✅ | Flash loan reentrancy via deposit |
+| 5 | [**The Rewarder**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Rewarder.md) | ✅ | Intra-transaction replay via delayed state write |
+| 6 | [**Selfie**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Selfie.md) | ✅ | Flash loan governance attack |
+| 7 | [**Compromised**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Compromised.md) | ✅ | Oracle manipulation via leaked private keys |
+| 8 | **Puppet** | Unlinked | Uniswap v1 spot price oracle manipulation |
+| 9 | **Puppet V2** | Unlinked | Uniswap v2 price oracle manipulation |
+| 10 | **Free Rider** | Unlinked | NFT marketplace payment flaw + flash swap |
+| 11 | **Backdoor** | Unlinked | Gnosis Safe setup callback exploit |
+| 12 | **Climber** | Unlinked | Timelock access control + proxy upgrade chain |
+| 13 | **Wallet Mining** | Unlinked | Predictable CREATE2 address exploitation |
+| 14 | **Puppet V3** | Unlinked | Uniswap v3 TWAP oracle manipulation |
+| 15 | **ABI Smuggling** | Unlinked | Calldata authorization bypass |
+| 16 | **Shards** | Unlinked | Fractional NFT rounding exploit |
+| 17 | **Curvy Puppet** | Unlinked | Curve read-only reentrancy + lending liquidation |
+| 18 | **Withdrawal** | Unlinked | Bridge withdrawal without Merkle proof validation |
 
 ---
 
 ## Testing with Foundry
 
-After cloning the repo, navigate into the project directory and run `forge init --force .` to initialize it as a Foundry project. This command sets up the necessary Foundry directory structure (`src`, `test`, `lib`, `script`) and configuration file (`foundry.toml`) even though the directory is not empty. Once initialized, you can compile the contracts with `forge build` and run tests with `forge test`.
+After cloning the repo, navigate into the project directory and run `forge init --force .` to initialize it as a Foundry project. This command sets up the necessary Foundry directory structure (`src`, `test`, `lib`, `script`) and configuration file (`foundry.toml`) even though the directory is not empty. Once initialized, compile with `forge build` and run tests with `forge test`.
 
-> The `forge test` command **both compiles and tests** the project by default. It automatically runs the compilation step if the project hasn't been compiled yet or if any source files have changed since the last compilation. While `forge build` is used specifically for compiling the project, running `forge test` will trigger a build as its first step before executing the tests.
+> `forge test` **both compiles and tests** the project. It automatically runs compilation if source files have changed since the last build.
 
-
+> **Note:** Challenges that fork mainnet state (Puppet V3, Curvy Puppet) require a valid `MAINNET_RPC_URL`. Rename `.env.sample` to `.env` and add your RPC URL before running those tests.
 
 ### Foundry Tests
 
-To run Foundry tests on specific files or folders, use the `--match-path` flag with a glob pattern.
+To run tests on a specific file or folder, use the `--match-path` flag:
 
 ```bash
 forge test --match-path 'test/specific_folder/*'
 forge test --match-path 'test/MyTest.t.sol'
 ```
 
-You can also filter by contract or test name using `--match-contract` or `--match-test`.
+Filter by contract or test name with `--match-contract` or `--match-test`.
 
----
+In Foundry, single-dash short aliases exist for common flags: `-mp` for `--match-path`, `-c` for `--match-contract`, `-m` for `--match-test`.
 
-In Foundry, **single-dash (`-`)** flags are short aliases for **double-dash (`--`)** long flags.
+### Per-Challenge Test Commands
 
-For `--match-path`, the correct short alias is **`-mp`** (two characters after the single dash). So, you can use either:
-
-```bash
-forge test --match-path 'test/MyTest.t.sol'
-```
-
-or its equivalent short form:
-
-```bash
-forge test -mp 'test/MyTest.t.sol'
-```
-
-Other common examples are `-c` for `--match-contract` and `-m` for `--match-test`.
-
----
-
-### Foundry Testing in Damn-Vulnerable-DeFi
-
-This list provides **specific Foundry CLI commands** to run tests for individual Damn-Vulnerable-DeFi challenges. Each command uses the `--match-path` (`-mp`) flag to target a single test file by its path within the `test/` directory.
-
-To use them, navigate to your Foundry project root and run the command for the challenge you want to test. For example, `forge test --mp test/unstoppable/Unstoppable.t.sol` compiles the project and executes only the tests defined in that specific file, which is useful for focusing on one challenge at a time.
-
-
-
-- **Unstoppable**:  
+- **Unstoppable**:
 ```bash
 forge test --mp test/unstoppable/Unstoppable.t.sol
 ```
-- **Naive Receiver**:  
+- **Naive Receiver**:
 ```bash
 forge test --mp test/naive-receiver/NaiveReceiver.t.sol
 ```
-- **Truster**:  
+- **Truster**:
 ```bash
 forge test --mp test/truster/Truster.t.sol
 ```
-- **Side Entrance**:  
+- **Side Entrance**:
 ```bash
 forge test --mp test/side-entrance/SideEntrance.t.sol
 ```
-- **The Rewarder**:  
+- **The Rewarder**:
 ```bash
 forge test --mp test/the-rewarder/TheRewarder.t.sol
 ```
-- **Selfie**:  
+- **Selfie**:
 ```bash
 forge test --mp test/selfie/Selfie.t.sol
 ```
-- **Compromised**:  
+- **Compromised**:
 ```bash
 forge test --mp test/compromised/Compromised.t.sol
 ```
-- **Puppet, Puppet V2, Puppet V3**:  
+- **Puppet**:
 ```bash
 forge test --mp test/puppet/Puppet.t.sol
 ```
+- **Puppet V2**:
 ```bash
 forge test --mp test/puppet-v2/PuppetV2.t.sol
 ```
-```bash
-forge test --mp test/puppet-v3/PuppetV3.t.sol
-```
-- **Free Rider**:  
+- **Free Rider**:
 ```bash
 forge test --mp test/free-rider/FreeRider.t.sol
 ```
-- **Backdoor**:  
+- **Backdoor**:
 ```bash
 forge test --mp test/backdoor/Backdoor.t.sol
 ```
-- **Climber**:  
+- **Climber**:
 ```bash
 forge test --mp test/climber/Climber.t.sol
 ```
-- **Wallet Mining**:  
+- **Wallet Mining**:
 ```bash
 forge test --mp test/wallet-mining/WalletMining.t.sol
 ```
-- **ABI Smuggling**:  
+- **Puppet V3**:
+```bash
+forge test --mp test/puppet-v3/PuppetV3.t.sol
+```
+- **ABI Smuggling**:
 ```bash
 forge test --mp test/abi-smuggling/ABISmuggling.t.sol
 ```
-- **Shards**:  
+- **Shards**:
 ```bash
 forge test --mp test/shards/Shards.t.sol
 ```
-- **Curvy Puppet**:  
+- **Curvy Puppet**:
 ```bash
 forge test --mp test/curvy-puppet/CurvyPuppet.t.sol
 ```
-- **Withdrawal**:  
+- **Withdrawal**:
 ```bash
 forge test --mp test/withdrawal/Withdrawal.t.sol
 ```
-
----
