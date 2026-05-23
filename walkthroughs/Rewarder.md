@@ -2,24 +2,47 @@
 
 ### Vulnerability
 
-The vulnerability lies in `TheRewarderDistributor.claimRewards()`'s delayed state update:
+The vulnerability lies in `TheRewarderDistributor.claimRewards()`'s delayed state update. Reading the actual control flow:
 
 ```solidity
 for (uint256 i = 0; i < inputClaims.length; i++) {
-    // ...verifies Merkle proof and transfers tokens for each claim...
-    
-    // State update only happens on the LAST claim for each token batch:
-    if (i == inputClaims.length - 1) {
-        if (!_setClaimed(token, amount, wordPosition, bitsSet))
-            revert AlreadyClaimed();
+    inputClaim = inputClaims[i];
+
+    uint256 wordPosition = inputClaim.batchNumber / 256;
+    uint256 bitPosition  = inputClaim.batchNumber % 256;
+
+    if (token != inputTokens[inputClaim.tokenIndex]) {
+        // Token has changed — write the bitmap for the PREVIOUS token
+        if (address(token) != address(0)) {
+            if (!_setClaimed(token, amount, wordPosition, bitsSet)) revert AlreadyClaimed();
+        }
+        token  = inputTokens[inputClaim.tokenIndex];
+        bitsSet = 1 << bitPosition;
+        amount  = inputClaim.amount;
+    } else {
+        bitsSet = bitsSet | 1 << bitPosition;
+        amount += inputClaim.amount;
     }
+
+    // For the last claim in the array — write the bitmap for the CURRENT token
+    if (i == inputClaims.length - 1) {
+        if (!_setClaimed(token, amount, wordPosition, bitsSet)) revert AlreadyClaimed();
+    }
+
+    bytes32 leaf = keccak256(abi.encodePacked(msg.sender, inputClaim.amount));
+    if (!MerkleProof.verify(inputClaim.proof, root, leaf)) revert InvalidProof();
+
+    inputTokens[inputClaim.tokenIndex].transfer(msg.sender, inputClaim.amount); // ← transfer happens every iteration
 }
 ```
 
-- `_setClaimed()` writes to the "already claimed" bitmap **only after the entire array is processed**, not per individual claim
-- Merkle proof verification passes for every copy of the same valid claim — the proof itself is valid, only the bitmap prevents replay
-- Since the bitmap isn't updated until the last item, all intermediate transfers succeed before any replay protection fires
-- A player with a valid claim can submit it hundreds of times in a single transaction, draining the distributor before the bitmap catches up
+There are **two** `_setClaimed` call sites, not one:
+- **On token switch** — when the claim array transitions from one token to another, the bitmap is written for the token that just finished
+- **At array end** — the bitmap is written for whichever token was active last
+
+Critically, `transfer` happens on **every iteration** — but `_setClaimed` fires only twice for the entire array (once per token group). All intermediate claims for the same token accumulate transfers without any bitmap check.
+
+This is why the exploit submits all DVT claims first, then all WETH claims: the DVT bitmap is written at the single token-switch point, the WETH bitmap is written at the end. Each group of hundreds of identical claims triggers exactly one bitmap write, regardless of how many transfers have already gone out.
 
 ### Exploit
 
@@ -77,7 +100,7 @@ for (uint256 i = 0; i < totalClaims; i++) {
 }
 ```
 
-Every claim in the array is structurally identical — same batch, same amount, same valid Merkle proof for index 188. First all DVT claims fill the front of the array, then all WETH claims.
+The array is ordered **all DVT first, then all WETH** — this is not arbitrary. The two-trigger `_setClaimed` pattern means the token ordering directly controls when each bitmap write fires. Interleaving DVT and WETH claims would trigger `_setClaimed` on every token switch, immediately blocking the replay. Grouping them ensures each token's bitmap is written exactly once, after all its transfers have gone through.
 
 #### Step 4 — Submit All Claims in One Transaction
 
@@ -85,7 +108,7 @@ Every claim in the array is structurally identical — same batch, same amount, 
 distributor.claimRewards({inputClaims: claims, inputTokens: tokensToClaim});
 ```
 
-The contract processes all ~1,720 transfers before the bitmap is written once at the end. The distributor is drained in a single call.
+The distributor processes all ~865 DVT transfers (bitmap written once at the switch), then all ~852 WETH transfers (bitmap written once at the end). Total: ~1,720 transfers, 2 bitmap writes.
 
 #### Step 5 — Transfer to Recovery
 
@@ -96,6 +119,10 @@ weth.transfer(recovery, weth.balanceOf(player));
 
 ### Why It Works
 
-The root cause is treating claim validation as a batch-level concern rather than a per-claim concern. A correct implementation would call `_setClaimed()` before each individual transfer — checking and writing the bitmap atomically per claim. Instead, the contract verifies the Merkle proof per item but defers the write until the batch ends, creating a window where the same valid proof can be replayed arbitrarily many times within that single call.
+The root cause is treating claim validation as a batch-level concern rather than a per-claim concern. The contract accumulates amounts and bits across all claims of the same token, deferring the bitmap write until the token changes or the array ends. This means a single valid proof can be submitted hundreds of times before the bitmap ever gets checked.
 
-This is an **intra-transaction replay attack via delayed state write** — the attacker never leaves the transaction, so the bitmap is never read as "claimed" during any of the ~1,720 iterations. One valid proof, hundreds of payouts, one bitmap write at the very end.
+A correct implementation would call `_setClaimed()` before each individual transfer — checking and writing the bitmap atomically per claim. The current design inverts this: transfer first, mark claimed last.
+
+The exploit's DVT-then-WETH ordering is essential, not cosmetic. It ensures the two bitmap writes happen exactly where the attacker expects — maximising drain within each token group before the write fires.
+
+This is an **intra-transaction replay attack via delayed state write** — the attacker never leaves the transaction, so the bitmap is never read as "claimed" during any of the ~1,720 iterations. One valid proof per token, hundreds of payouts per token, two bitmap writes total.
