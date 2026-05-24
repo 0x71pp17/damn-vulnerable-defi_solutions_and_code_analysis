@@ -13,9 +13,9 @@ Use Damn Vulnerable DeFi to:
 
 ## Disclaimer
 
-All code, practices and patterns in this public repository fork, and original, are DAMN VULNERABLE and for educational purposes only.
+All code, practices and patterns in this public repository fork, and original, are **DAMN VULNERABLE** and for educational purposes only.
 
-DO NOT USE IN PRODUCTION.
+**DO NOT USE IN PRODUCTION**.
 
 ---
 
