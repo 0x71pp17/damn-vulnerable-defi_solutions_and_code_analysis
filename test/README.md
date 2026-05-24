@@ -12,6 +12,18 @@ forge init --force .
 
 This sets up the necessary directory structure (`src`, `test`, `lib`, `script`) and `foundry.toml` even though the directory is not empty.
 
+Install all dependencies (git submodules):
+
+```bash
+git submodule update --init --recursive
+```
+
+Or equivalently via Foundry:
+
+```bash
+forge install
+```
+
 Compile and run all tests:
 
 ```bash
