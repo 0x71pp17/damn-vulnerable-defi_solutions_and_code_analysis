@@ -21,7 +21,57 @@ forge test
 
 `forge test` compiles and tests in one step — it automatically recompiles any changed source files before running.
 
-> **Mainnet fork required:** Puppet V3 and Curvy Puppet fork mainnet state. Before running those tests, rename `.env.sample` to `.env` and add a valid `MAINNET_RPC_URL`.
+## Mainnet Fork Setup
+
+Two challenges require Foundry to fork mainnet state — they use hardcoded addresses of live Uniswap V3, Curve, and Balancer contracts that don't exist in a blank test environment. Without the fork configured, `setUp()` fails before your solution code runs at all.
+
+**Affected challenges:**
+
+| Challenge | Env variable | Block forked |
+|-----------|-------------|--------------|
+| Puppet V3 (14) | `MAINNET_FORKING_URL` | 15,450,164 (fixed) |
+| Curvy Puppet (17) | `MAINNET_RPC_URL` | latest |
+
+Note the two challenges use **different variable names** — both must be set.
+
+**Setup steps:**
+
+1. Get a free mainnet RPC URL from [Alchemy](https://alchemy.com) (recommended) or [Infura](https://infura.io). The same API key URL works for both variables.
+
+2. Copy the sample env file:
+```bash
+cp .env.sample .env
+```
+
+3. Edit `.env` and replace `YOUR_API_KEY_HERE` with your actual URL:
+```
+MAINNET_FORKING_URL=https://eth-mainnet.g.alchemy.com/v2/your_key
+MAINNET_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/your_key
+```
+
+4. Load env vars, then run the fork tests:
+```bash
+source .env
+forge test --mp test/puppet-v3/PuppetV3.t.sol -vvvv
+forge test --mp test/curvy-puppet/CurvyPuppet.t.sol --fork-url $MAINNET_RPC_URL -vvvv
+```
+
+Both `.env` files live in the **project root** alongside `foundry.toml` — not inside the test subfolders. Foundry auto-loads `.env` from the project root when running `forge test`.
+
+```
+your-repo/
+├── .env.sample          ← committed to git (safe, no real keys)
+├── .env                 ← NOT committed (your real keys go here)
+├── foundry.toml
+├── test/
+│   ├── README.md
+│   ├── puppet-v3/
+│   │   └── PuppetV3.t.sol
+│   └── curvy-puppet/
+│       └── CurvyPuppet.t.sol
+```
+
+> ⚠️ Never commit `.env` to git. Confirm `.env` is listed in `.gitignore` before adding your API key.
 
 ## Filtering Tests
 
@@ -94,7 +144,7 @@ forge test --mp test/climber/Climber.t.sol
 ```bash
 forge test --mp test/wallet-mining/WalletMining.t.sol
 ```
-- **Puppet V3** ⚠️ requires `MAINNET_RPC_URL`:
+- **Puppet V3** ⚠️ requires `MAINNET_FORKING_URL` in `.env` — run `source .env` first:
 ```bash
 forge test --mp test/puppet-v3/PuppetV3.t.sol
 ```
@@ -106,9 +156,9 @@ forge test --mp test/abi-smuggling/ABISmuggling.t.sol
 ```bash
 forge test --mp test/shards/Shards.t.sol
 ```
-- **Curvy Puppet** ⚠️ requires `MAINNET_RPC_URL`:
+- **Curvy Puppet** ⚠️ requires `MAINNET_RPC_URL` in `.env` — run `source .env` first:
 ```bash
-forge test --mp test/curvy-puppet/CurvyPuppet.t.sol
+forge test --mp test/curvy-puppet/CurvyPuppet.t.sol --fork-url $MAINNET_RPC_URL
 ```
 - **Withdrawal**:
 ```bash
