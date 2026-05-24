@@ -62,7 +62,7 @@ Each walkthrough includes:
 | 14 | [**Puppet V3**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/PuppetV3.md) | Uniswap v3 TWAP oracle manipulation | ✅ |
 | 15 | **ABI Smuggling** | Calldata authorization bypass | Unlinked |
 | 16 | **Shards** | Fractional NFT rounding exploit *(new v4)* | Unlinked |
-| 17 | **Curvy Puppet** | Curve read-only reentrancy + lending liquidation *(new v4)* | Unlinked |
+| 17 | [**Curvy Puppet**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/CurvyPuppet.md) | Curve read-only reentrancy + lending liquidation *(new v4)* | ✅ |
 | 18 | **Withdrawal** | Bridge withdrawal without Merkle proof validation *(new v4)* | Unlinked |
 
 ---
