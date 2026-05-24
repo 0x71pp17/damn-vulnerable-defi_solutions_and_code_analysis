@@ -28,7 +28,11 @@ This repo is forked from [Damn Vulnerable Defi v4](https://github.com/theredguil
 
 ## Challenges & Walkthroughs
 
-Damn Vulnerable DeFi v4 includes 18 challenges covering flash loan manipulation, price oracle attacks, governance exploits, reentrancy, access control failures, and NFT marketplace bugs. The v4 version migrated to [Foundry](https://getfoundry.sh), updated all dependencies (e.g., OpenZeppelin Contracts v5), and added advanced features including multicalls, meta-transactions, permit2, Merkle proofs, and ERC1155. All challenges require depositing funds into designated recovery accounts.
+Damn Vulnerable DeFi v4 includes 18 challenges covering flash loan manipulation, price oracle attacks, governance exploits, reentrancy, access control failures, and NFT marketplace bugs. v4 brought a full migration from Hardhat to Foundry, updated all contracts to Solidity 0.8.25, and upgraded all dependencies (e.g., OpenZeppelin Contracts v5, solmate, solady, murky, Permit2). All challenges now require depositing rescued funds into designated recovery accounts.
+
+**New challenges in v4.0.0:** Withdrawal, Curvy Puppet, and Shards.  
+**Significantly reworked in v4.0.0:** The Rewarder (completely new Merkle-proof-based distribution mechanic) and Unstoppable (new monitor contract with pausing).  
+**Updated in v4.1.0:** Wallet Mining (new CREATEX-based deployment mechanic and Safe Singleton Factory integration).
 
 Solutions and walkthroughs in this repo cover all 18 challenges available in the forked repository as of its last update (March 2025).
 
@@ -46,19 +50,21 @@ Each walkthrough includes:
 | 2 | [**Naive Receiver**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/NaiveReceiver.md) | Unauthorized flash loan + meta-transaction caller spoofing | ✅ |
 | 3 | [**Truster**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Truster.md) | Arbitrary external call in flash loan | ✅ |
 | 4 | [**Side Entrance**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/SideEntrance.md) | Flash loan reentrancy via deposit | ✅ |
-| 5 | [**The Rewarder**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Rewarder.md) | Intra-transaction replay via delayed state write | ✅ |
+| 5 | [**The Rewarder**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Rewarder.md) | Intra-transaction replay via delayed state write *(reworked v4)* | ✅ |
 | 6 | [**Selfie**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Selfie.md) | Flash loan governance attack | ✅ |
 | 7 | [**Compromised**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Compromised.md) | Oracle manipulation via leaked private keys | ✅ |
-| 8 | **Puppet** | Uniswap v1 spot price oracle manipulation | Unlinked |
-| 9 | **Puppet V2** | Uniswap v2 price oracle manipulation | Unlinked |
+| 8 | [**Puppet**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Puppet.md) | Uniswap v1 spot price oracle manipulation | ✅ |
+| 9 | [**Puppet V2**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/PuppetV2.md) | Uniswap v2 spot price oracle manipulation | ✅ |
 | 10 | **Free Rider** | NFT marketplace payment flaw + flash swap | Unlinked |
 | 11 | **Backdoor** | Gnosis Safe setup callback exploit | Unlinked |
 | 12 | **Climber** | Timelock access control + proxy upgrade chain | Unlinked |
-| 13 | **Wallet Mining** | Predictable CREATE2 address exploitation | Unlinked |
-| 14 | **Puppet V3** | Uniswap v3 TWAP oracle manipulation | Unlinked |
+| 13 | **Wallet Mining** | Predictable CREATE2 address exploitation *(updated v4.1)* | Unlinked |
+| 14 | [**Puppet V3**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/PuppetV3.md) | Uniswap v3 TWAP oracle manipulation | ✅ |
 | 15 | **ABI Smuggling** | Calldata authorization bypass | Unlinked |
-| 16 | **Shards** | Fractional NFT rounding exploit | Unlinked |
-| 17 | **Curvy Puppet** | Curve read-only reentrancy + lending liquidation | Unlinked |
-| 18 | **Withdrawal** | Bridge withdrawal without Merkle proof validation | Unlinked |
+| 16 | **Shards** | Fractional NFT rounding exploit *(new v4)* | Unlinked |
+| 17 | **Curvy Puppet** | Curve read-only reentrancy + lending liquidation *(new v4)* | Unlinked |
+| 18 | **Withdrawal** | Bridge withdrawal without Merkle proof validation *(new v4)* | Unlinked |
 
 ---
+
+> For Foundry setup and per-challenge test commands, see [`test/README.md`](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/test/README.md).
