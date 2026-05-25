@@ -71,7 +71,9 @@ Read-only reentrancy is particularly subtle because no state is written during t
 
 The fix is to check the Curve pool's lock status before reading `get_virtual_price()` — Curve pools expose a `is_killed` or reentrancy lock that indicates when the pool is mid-execution. Alternatively, the lending contract can use a Chainlink oracle for LP pricing instead of reading from the pool directly.
 
-This vulnerability class affected multiple real DeFi protocols in 2022–2023, including exploits on Mango Markets and various Curve LP oracle integrations. It was formally documented by ChainSecurity in their analysis of read-only reentrancy risks in Curve-integrated protocols.
+This vulnerability class affected multiple real DeFi protocols in 2022–2023, including the Midas Capital exploit (June 2023, ~$660K) and Sentiment Protocol (April 2023, ~$1M) — both via Curve LP oracle integrations — and Balancer-based protocols affected by the same read-only reentrancy class on `getPoolTokens()`. It was formally documented by ChainSecurity in their analysis of read-only reentrancy risks in Curve-integrated protocols.
+
+**Related challenges:** For a minimal model of read-only reentrancy without mainnet forking, see the `solidity-riddles` `ReadOnly.sol` CTF — it reproduces the core mechanism (`getVirtualPrice = balance / totalSupply` read mid-callback) in a simple two-contract setup, making it an ideal warm-up before the fork-based Curvy Puppet.
 
 > **Note:** This challenge requires `MAINNET_FORKING_URL` set in `.env`. The setup forks mainnet at block 20,190,356 to use the live Curve stETH/ETH pool at `0xDC24316b9AE028F1497c275EB9192a3Ea0f67022`.
 

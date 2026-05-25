@@ -77,3 +77,5 @@ Uniswap V1 was designed as a DEX, not a price oracle. Its prices are intended to
 The fix used in Puppet V2 and V3 is a TWAP (Time-Weighted Average Price) oracle that accumulates price over multiple blocks, making single-block manipulation economically infeasible since an attacker would need to hold a manipulated price for many blocks while losing money to arbitrage.
 
 This is a **spot price oracle manipulation** attack — one transaction, ~11,000x price crash, 100,000 DVT borrowed for 18 ETH.
+
+**Related challenges:** SCH's `dex-2 (Sniper)` lab uses the same Uniswap V2 reserve-reading primitives that Puppet V2 drains via spot price (and the same conceptual primitives as Puppet V1, scaled up to V2's `getReserves` / `getAmountOut` math). It's a useful exercise for internalizing how reserve ratios respond to swaps before applying that intuition to the oracle-manipulation framing.

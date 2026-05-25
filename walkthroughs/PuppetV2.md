@@ -108,3 +108,5 @@ The upgrade from Uniswap V1 to V2 changed the AMM design — constant product fo
 `UniswapV2Library.quote()` is documented as a utility function for proportional calculations — it is not designed or intended for use as a price oracle. The fix is `UniswapV2Library.getAmountsOut()` with a TWAP accumulator, or using a dedicated oracle like Chainlink. Puppet V3 demonstrates the TWAP approach — and shows it still isn't sufficient if the observation window is too short.
 
 This is a **Uniswap V2 spot price oracle manipulation** attack — same root cause as V1, same single-transaction exploit, same fix required.
+
+**Related challenges:** SCH's `dex-2 (Sniper)` lab works directly with `getReserves` and `getAmountOut` on Uniswap V2 — the same low-level primitives that Puppet V2's oracle reads via `UniswapV2Library.quote()`. The lab teaches the reserve-math intuition (constant product, price impact of a swap, fee adjustment) before applying it to the oracle-manipulation framing.

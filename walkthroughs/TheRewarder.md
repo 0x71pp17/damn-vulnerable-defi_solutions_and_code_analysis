@@ -126,3 +126,5 @@ A correct implementation would call `_setClaimed()` before each individual trans
 The exploit's DVT-then-WETH ordering is essential, not cosmetic. It ensures the two bitmap writes happen exactly where the attacker expects — maximising drain within each token group before the write fires.
 
 This is an **intra-transaction replay attack via delayed state write** — the attacker never leaves the transaction, so the bitmap is never read as "claimed" during any of the ~1,720 iterations. One valid proof per token, hundreds of payouts per token, two bitmap writes total.
+
+This attack class is formally cataloged as the **Delayed State Write / Batch Claim Replay** pattern. The same pattern appears in perpetuals settlement loops — any batch loop that accumulates insolvency or claim status in memory and writes the result only after the loop completes is vulnerable to mid-loop replay. The unifying principle: state writes must happen per-iteration (Check-Effect-Interact applied to each item), not per-batch. Wherever an external effect (transfer, settlement, mint) fires inside a loop, the corresponding state update must fire alongside it — not after the loop closes.
