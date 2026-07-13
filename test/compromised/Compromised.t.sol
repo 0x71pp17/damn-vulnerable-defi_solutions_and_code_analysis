@@ -172,10 +172,6 @@ contract CompromisedChallenge is Test {
  * @notice Intermediate contract for the Compromised challenge exploit
  * @dev Holds player ETH and the DVNFT between the price manipulation steps.
  *      Must implement IERC721Receiver since exchange uses safeMint().
- * @param _oracle  The TrustfulOracle — stored for reference
- * @param _exchange The Exchange contract to buy from and sell to
- * @param _nft     The DamnValuableNFT token contract
- * @param _recovery Destination for recovered ETH
  */
 contract CompromisedAttacker is IERC721Receiver {
 
@@ -185,6 +181,12 @@ contract CompromisedAttacker is IERC721Receiver {
     address         recovery;
     uint256         nftId;
 
+    /**
+     * @param _oracle  The TrustfulOracle — stored for reference
+     * @param _exchange The Exchange contract to buy from and sell to
+     * @param _nft     The DamnValuableNFT token contract
+     * @param _recovery Destination for recovered ETH
+     */
     constructor(
         TrustfulOracle  _oracle,
         Exchange        _exchange,
