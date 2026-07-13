@@ -57,7 +57,7 @@ Each walkthrough includes:
 | 2  | [**Naive Receiver**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/NaiveReceiver.md) | Unauthorized flash loan + meta-transaction caller spoofing       |
 | 3  | [**Truster**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Truster.md)              | Arbitrary external call in flash loan                            |
 | 4  | [**Side Entrance**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/SideEntrance.md)   | Flash loan reentrancy via deposit                                |
-| 5  | [**The Rewarder**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Rewarder.md)        | Intra-transaction replay via delayed state write *(reworked v4)* |
+| 5  | [**The Rewarder**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/TheRewarder.md)        | Intra-transaction replay via delayed state write *(reworked v4)* |
 | 6  | [**Selfie**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Selfie.md)                | Flash loan governance attack                                     |
 | 7  | [**Compromised**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Compromised.md)      | Oracle manipulation via leaked private keys                      |
 | 8  | [**Puppet**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Puppet.md)                | Uniswap v1 spot price oracle manipulation                        |
