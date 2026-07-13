@@ -71,11 +71,11 @@ contract CompromisedChallenge is Test {
             assertEq(sources[i].balance, TRUSTED_SOURCE_INITIAL_ETH_BALANCE);
         }
         assertEq(player.balance, PLAYER_INITIAL_ETH_BALANCE);
-        assertEq(address(exchange).balance, EXCHANGE_INITIAL_ETH_BALANCE);
-        assertEq(oracle.getMedianPrice(symbols[0]), INITIAL_NFT_PRICE);
+        assertEq(nft.owner(), address(0)); // ownership renounced
+        assertEq(nft.rolesOf(address(exchange)), nft.MINTER_ROLE());
     }
 
-     /**
+    /**
      * CODE YOUR SOLUTION HERE
      * =========================================================
      * Attack: Oracle manipulation via leaked private keys
@@ -127,24 +127,6 @@ contract CompromisedChallenge is Test {
         // 5. Forward the drained ETH to recovery
         attacker.recover();
     }
-
-    /**
-     * CHECKS SUCCESS CONDITIONS - DO NOT TOUCH
-     */
-    function _isSolved() private view {
-        // Exchange doesn't have ETH anymore
-        assertEq(address(exchange).balance, 0);
-
-        // ETH was deposited into the recovery account
-        assertEq(recovery.balance, EXCHANGE_INITIAL_ETH_BALANCE);
-
-        // Player must not own any NFT
-        assertEq(nft.balanceOf(player), 0);
-
-        // NFT price didn't change
-        assertEq(oracle.getMedianPrice("DVNFT"), INITIAL_NFT_PRICE);
-    }
-}
 
     /**
      * CHECKS SUCCESS CONDITIONS - DO NOT TOUCH
