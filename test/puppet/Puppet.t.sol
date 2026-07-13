@@ -154,10 +154,6 @@ contract PuppetChallenge is Test {
  * @notice Exploit contract for PuppetPool spot price oracle attack
  * @dev Dumps player DVT into Uniswap V1 to crash PuppetPool's oracle,
  *      then borrows all pool tokens at the deflated collateral rate.
- * @param _token             DamnValuableToken contract
- * @param _lendingPool       PuppetPool to drain
- * @param _uniswapV1Exchange Uniswap V1 exchange used as oracle
- * @param _recovery          Destination for borrowed tokens
  */
 contract PuppetAttacker {
 
@@ -166,6 +162,12 @@ contract PuppetAttacker {
     IUniswapV1Exchange uniswapV1Exchange;
     address            recovery;
 
+    /**
+     * @param _token             DamnValuableToken contract
+     * @param _lendingPool       PuppetPool to drain
+     * @param _uniswapV1Exchange Uniswap V1 exchange used as oracle
+     * @param _recovery          Destination for borrowed tokens
+     */
     constructor(
         DamnValuableToken  _token,
         PuppetPool         _lendingPool,
