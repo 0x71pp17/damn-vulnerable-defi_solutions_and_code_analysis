@@ -249,15 +249,6 @@ contract CurvyPuppetChallenge is Test {
  * @dev Curve sends ETH to this contract during remove_liquidity() before
  *      updating pool balances. Inside receive(), get_virtual_price() is
  *      inflated, making all three user positions liquidatable.
- * @param _dvt       DamnValuableToken (collateral asset)
- * @param _lending   CurvyPuppetLending contract to liquidate from
- * @param _curvePool Curve stETH/ETH pool (0xDC24...)
- * @param _weth      WETH contract
- * @param _permit2   Permit2 contract for LP token approvals
- * @param _treasury  Treasury address — source of funds + recipient of rescued assets
- * @param _alice     First victim to liquidate
- * @param _bob       Second victim to liquidate
- * @param _charlie   Third victim to liquidate
  */
 contract CurvyPuppetAttacker {
 
@@ -272,6 +263,17 @@ contract CurvyPuppetAttacker {
     address            charlie;
     IERC20             lpToken;
 
+    /**
+     * @param _dvt       DamnValuableToken (collateral asset)
+     * @param _lending   CurvyPuppetLending contract to liquidate from
+     * @param _curvePool Curve stETH/ETH pool (0xDC24...)
+     * @param _weth      WETH contract
+     * @param _permit2   Permit2 contract for LP token approvals
+     * @param _treasury  Treasury address — source of funds + recipient of rescued assets
+     * @param _alice     First victim to liquidate
+     * @param _bob       Second victim to liquidate
+     * @param _charlie   Third victim to liquidate
+     */
     constructor(
         DamnValuableToken  _dvt,
         CurvyPuppetLending _lending,
