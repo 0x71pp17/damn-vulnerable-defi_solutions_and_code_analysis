@@ -55,15 +55,15 @@ Each walkthrough includes:
 | 7 | [**Compromised**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Compromised.md) | Oracle manipulation via leaked private keys | ✅ |
 | 8 | [**Puppet**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Puppet.md) | Uniswap v1 spot price oracle manipulation | ✅ |
 | 9 | [**Puppet V2**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/PuppetV2.md) | Uniswap v2 spot price oracle manipulation | ✅ |
-| 10 | **Free Rider** | NFT marketplace payment flaw + flash swap | Unlinked |
-| 11 | **Backdoor** | Gnosis Safe setup callback exploit | Unlinked |
-| 12 | **Climber** | Timelock access control + proxy upgrade chain | Unlinked |
-| 13 | **Wallet Mining** | Predictable CREATE2 address exploitation *(updated v4.1)* | Unlinked |
+| 10 | [**Free Rider**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/FreeRider.md) | NFT marketplace payment flaw + flash swap | ✅ |
+| 11 | [**Backdoor**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Backdoor.md) | Gnosis Safe setup callback exploit | ✅ |
+| 12 | [**Climber**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Climber.md) | Timelock access control + proxy upgrade chain | ✅ |
+| 13 | [**Wallet Mining**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/WalletMining.md) | Predictable CREATE2 address exploitation *(updated v4.1)* | ✅ |
 | 14 | [**Puppet V3**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/PuppetV3.md) | Uniswap v3 TWAP oracle manipulation | ✅ |
-| 15 | **ABI Smuggling** | Calldata authorization bypass | Unlinked |
-| 16 | **Shards** | Fractional NFT rounding exploit *(new v4)* | Unlinked |
+| 15 | [**ABI Smuggling**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/ABISmuggling.md) | Calldata authorization bypass | ✅ |
+| 16 | [**Shards**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Shards.md) | Fractional NFT rounding exploit *(new v4)* | ✅ |
 | 17 | [**Curvy Puppet**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/CurvyPuppet.md) | Curve read-only reentrancy + lending liquidation *(new v4)* | ✅ |
-| 18 | **Withdrawal** | Bridge withdrawal without Merkle proof validation *(new v4)* | Unlinked |
+| 18 | [**Withdrawal**](https://github.com/0x71pp17/damn-vulnerable-defi_solutions_and_code_analysis/blob/master/walkthroughs/Withdrawal.md) | Bridge withdrawal without Merkle proof validation *(new v4)* | ✅ |
 
 ---
 
